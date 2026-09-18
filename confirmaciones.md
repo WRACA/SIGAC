@@ -2,6 +2,6 @@
 
 - [ ] Wendy
 - [ ] Roberto
-- [ ] Aristeo
+- [X] Aristeo
 - [ ] Alessandra
 - [X] Cándido
