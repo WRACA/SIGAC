@@ -1,0 +1,1 @@
+C:\Users\arist\OneDrive\Escritorio\REPOSITORIO\ ACTUALIZADO\ PROYECTO\ SIGAC\SIGAC\backend-sigac\target\debug\backend-sigac.exe: C:\Users\arist\OneDrive\Escritorio\REPOSITORIO\ ACTUALIZADO\ PROYECTO\ SIGAC\SIGAC\backend-sigac\src\main.rs
