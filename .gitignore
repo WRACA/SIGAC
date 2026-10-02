@@ -1,5 +1,5 @@
 .zed
 .vscode
 .idea
+target/
 .env
-/target
