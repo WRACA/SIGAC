@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { FaApple, FaFacebookF, FaGoogle, FaRegEye, FaRegEyeSlash } from "react-icons/fa6";
+// Importamos el servicio de autenticación
+import { login } from "../services/auth";
 
 const fondoOverlay = `linear-gradient(90deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,.10) 45%, rgba(0,0,0,.08) 100%),
                       linear-gradient(0deg, rgba(0,0,0,.75) 0%, transparent 45%)`;
@@ -25,9 +27,32 @@ const enlaceClase = "font-semibold text-acento hover:underline";
 export default function Login() {
   const [verPassword, setVerPassword] = useState(false);
 
-  const enviar = (e) => {
+  // Nuevos estados para la lógica de autenticación
+  const [correo, setCorreo] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const enviar = async (e) => {
     e.preventDefault();
-    // TODO: conectar con la autenticación
+    setError(null);
+    setLoading(true);
+
+    try {
+      // Llamada al endpoint usando tu servicio
+      const data = await login(correo, password);
+
+      // Guardar el token en el almacenamiento local
+      localStorage.setItem('token', data.token);
+      console.log('Autenticación exitosa', data);
+
+      // Redirigir al inicio o dashboard una vez logueado
+      // window.location.href = '/inicio';
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -53,6 +78,13 @@ export default function Login() {
             <p className="text-sm text-[#8e8e8e]">Accede a tu cuenta para continuar.</p>
           </div>
 
+          {/* Mostrar mensaje de error si existe */}
+          {error && (
+            <div className="mb-4 rounded bg-red-900/50 border border-red-500 p-3 text-sm text-red-200">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={enviar}>
             <div className="mb-6">
               <label htmlFor="correo" className={labelClase}>Correo electrónico</label>
@@ -62,7 +94,10 @@ export default function Login() {
                 name="correo"
                 placeholder="tu@correo.com"
                 required
+                value={correo}
+                onChange={(e) => setCorreo(e.target.value)}
                 className={inputClase}
+                disabled={loading}
               />
             </div>
 
@@ -75,13 +110,17 @@ export default function Login() {
                   name="password"
                   placeholder="••••••••"
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className={`${inputClase} pr-[50px]`}
+                  disabled={loading}
                 />
                 <button
                   type="button"
                   onClick={() => setVerPassword((v) => !v)}
                   aria-label={verPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                   className="absolute right-[18px] top-1/2 -translate-y-1/2 cursor-pointer text-[17px] text-[#b5b5b5]"
+                  disabled={loading}
                 >
                   {verPassword ? <FaRegEye /> : <FaRegEyeSlash />}
                 </button>
@@ -98,9 +137,10 @@ export default function Login() {
 
             <button
               type="submit"
-              className="h-[54px] w-full cursor-pointer rounded-lg bg-[linear-gradient(90deg,#ff4b00,#ff681c)] text-sm font-bold text-[#080808] transition duration-[250ms] hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(255,89,0,.35)]"
+              disabled={loading}
+              className="h-[54px] w-full cursor-pointer rounded-lg bg-[linear-gradient(90deg,#ff4b00,#ff681c)] text-sm font-bold text-[#080808] transition duration-[250ms] hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(255,89,0,.35)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             >
-              Iniciar sesión
+              {loading ? "Iniciando..." : "Iniciar sesión"}
             </button>
 
             <div className="my-8 flex items-center gap-[15px]">
