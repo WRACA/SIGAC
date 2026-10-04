@@ -1,3 +1,21 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+/* Variables :root del CSS original -> tokens de Tailwind
+   (generan bg-negro, text-naranja, border-borde, font-display...) */
+@theme {
+  --color-negro: #060606;
+  --color-gris: #141414;
+  --color-borde: #2a2a2a;
+  --color-naranja: #f26d21;
+  --color-texto: #f2f2f2;
+  --color-suave: #b5b5b5;
+  --color-acento: #ff5a00;
+
+  --font-sans: "Barlow", sans-serif;
+  --font-display: "Barlow Condensed", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-negro font-sans leading-normal text-texto;
+  }
+}
