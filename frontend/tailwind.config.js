@@ -7,9 +7,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        acento: '#ff5a00', // Agrego este color personalizado que usaste en tu Login.jsx
-      }
+        negro: "#060606",
+        gris: "#141414",
+        borde: "#2a2a2a",
+        naranja: "#f26d21",
+        texto: "#f2f2f2",
+        suave: "#b5b5b5",
+        acento: "#ff5a00",
+      },
+      fontFamily: {
+        sans: ["Barlow", "sans-serif"],
+        display: ["Barlow Condensed", "sans-serif"],
+      },
     },
   },
   plugins: [],
-}
+};
