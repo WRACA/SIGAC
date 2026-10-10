@@ -14,16 +14,18 @@ const fondos = {
   club: `url("/img/fondo4.png"), linear-gradient(135deg, #1a1a1a, #3a1c0a)`,
 };
 
+
 const deportes = [
-  ["⚽", "Fútbol"],
-  ["🏀", "Básquetbol"],
-  ["🏐", "Vóleibol"],
-  ["🎾", "Tenis"],
-  ["🏓", "Padel"],
-  ["🏊", "Natación"],
-  ["🏋️", "Gimnasio"],
-  ["＋", "Más deportes"],
+  ["⚽", "Fútbol", "futbol"],
+  ["🏀", "Básquetbol", "basquetbol"],
+  ["🏐", "Vóleibol", "voleibol"],
+  ["🎾", "Tenis", "tenis"],
+  ["🏓", "Pádel", "padel"],
+  ["🏊", "Natación", "natacion"],
+  ["🏋️", "Gimnasio", "gimnasio"],
+  ["＋", "Más deportes", ""],
 ];
+
 
 const cifras = [
   ["1,200+", "Socios activos"],
@@ -90,10 +92,10 @@ export default function Inicio() {
 
       {/* Deportes */}
       <section className="relative z-[3] mx-[5%] -mt-[30px] grid grid-cols-8 rounded-[10px] border border-borde bg-gris max-[900px]:grid-cols-4">
-        {deportes.map(([icono, nombre], i) => (
-          <Link
-            key={nombre}
-            to="/deportes"
+        {deportes.map(([icono, nombre, id], i) => (
+  <Link
+    key={nombre}
+    to={id ? `/deportes#${id}` : "/deportes"}
             className={[
               "flex flex-col items-center gap-2 border-r border-borde px-2 py-[22px] text-[.85rem] transition-colors hover:text-naranja last:border-r-0",
               i === 3 && "max-[900px]:border-r-0",
