@@ -1,9 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* Colores principales de SIGAC */
-:root {
+@import "tailwindcss";
+/* Variables :root del CSS original -> tokens de Tailwind
+   (generan bg-negro, text-naranja, border-borde, font-display...) */
+@theme {
   --color-negro: #060606;
   --color-gris: #141414;
   --color-borde: #2a2a2a;
@@ -16,17 +14,8 @@
   --font-display: "Barlow Condensed", sans-serif;
 }
 
-/* Estilos generales */
 @layer base {
   body {
-    background-color: var(--color-negro);
-    color: var(--color-texto);
-    font-family: var(--font-sans);
-    line-height: 1.5;
+    @apply bg-negro font-sans leading-normal text-texto;
   }
-}
-
-/* Desplazamiento suave entre secciones */
-html {
-  scroll-behavior: smooth;
 }

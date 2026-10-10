@@ -23,8 +23,8 @@ async fn main() {
     println!("Conectado a Neon :)");
 
     let app = Router::new()
-        .route("/auth/register", post(register))
-        .route("/auth/login", post(login))
+        .route("/api/auth/register", post(register))
+        .route("/api/auth/login", post(login))
         .with_state(db); // el pool de conexiones se comparte con los handlers
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
