@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize)]
 pub struct RegisterRequest {
     pub nombre: String,
+    pub apellido_p: String,
     pub correo: String,
     pub password: String,
 }
