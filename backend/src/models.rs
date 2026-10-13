@@ -33,3 +33,15 @@ pub struct UsuarioLogin {
     pub rol: String,
     pub password: String, // aquí viene el hash guardado en la BD
 }
+
+#[derive(serde::Serialize,sqlx::FromRow)]
+pub struct Actividad{
+    pub id: i32,
+    pub actividad:String,
+    pub descripcion: Option<String>,
+    pub dia_semana:i16,
+    pub hora_inicio:String,
+    pub hora_fin: String,
+    pub lugar: Option<String>,
+    pub coach: String,
+}
