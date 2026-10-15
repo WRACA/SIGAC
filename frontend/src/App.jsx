@@ -6,16 +6,19 @@ import Instalaciones from "./pages/Instalaciones.jsx";
 import Membresias from "./pages/Membresias.jsx";
 import Nosotros from "./pages/Nosotros.jsx";
 import Login from "./pages/Login.jsx";
+
 import { ProtectedRoute } from "./components/ProtectedRoute.jsx";
 
-const DashboardSocio = () => <div className="p-10 text-2xl text-white">Panel de Socio</div>;
-const DashboardInstructor = () => <div className="p-10 text-2xl text-white">Panel de Instructor</div>;
-const DashboardRecepcion = () => <div className="p-10 text-2xl text-white">Panel de Recepción</div>;
-const AccesoDenegado = () => <div className="p-10 text-2xl font-bold text-red-500">Error 403: No tienes permisos para ver esta página</div>;
+import Recepcionista from "./pages/Recepcionista.jsx";
+import Socio from "./pages/Socio.jsx";
+import Instructor from "./pages/Instructor.jsx";
+import SeccionDashboardPorRol from "./components/SeccionDashboardPorRol.jsx";
+import InscripcionRecepcion from "./pages/InscripcionRecepcion.jsx";
 
 export default function App() {
   return (
     <Routes>
+      {/* PÁGINAS PÚBLICAS */}
       <Route element={<Layout />}>
         <Route index element={<Inicio />} />
         <Route path="deportes" element={<Deportes />} />
@@ -23,19 +26,28 @@ export default function App() {
         <Route path="membresias" element={<Membresias />} />
         <Route path="nosotros" element={<Nosotros />} />
       </Route>
+
+      {/* RUTAS DE AUTENTICACIÓN Y ERRORES */}
       <Route path="login" element={<Login />} />
       <Route path="acceso-denegado" element={<AccesoDenegado />} />
 
+      {/* RUTAS PROTEGIDAS PARA SOCIOS */}
       <Route element={<ProtectedRoute rolesPermitidos={['socio']} />}>
-        <Route path="socio" element={<DashboardSocio />} />
+        <Route path="socio" element={<Socio />} />
+        <Route path="socio/:seccion" element={<SeccionDashboardPorRol rol="socio" />} />
       </Route>
 
-      <Route element={<ProtectedRoute rolesPermitidos={['coach']} />}>
-        <Route path="instructor" element={<DashboardInstructor />} />
+      {/* RUTAS PROTEGIDAS PARA INSTRUCTORES */}
+      <Route element={<ProtectedRoute rolesPermitidos={['instructor', 'coach']} />}>
+        <Route path="instructor" element={<Instructor />} />
+        <Route path="instructor/:seccion" element={<SeccionDashboardPorRol rol="instructor" />} />
       </Route>
 
+      {/* RUTAS PROTEGIDAS PARA RECEPCIONISTAS/ADMINISTRADORES */}
       <Route element={<ProtectedRoute rolesPermitidos={['recepcionista', 'administrador']} />}>
-        <Route path="recepcion" element={<DashboardRecepcion />} />
+        <Route path="recepcion" element={<Recepcionista />} />
+        <Route path="recepcion/inscripciones" element={<InscripcionRecepcion />} />
+        <Route path="recepcion/:seccion" element={<SeccionDashboardPorRol rol="recepcionista" />} />
       </Route>
     </Routes>
   );
