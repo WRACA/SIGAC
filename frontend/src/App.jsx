@@ -10,6 +10,7 @@ import Recepcionista from "./pages/Recepcionista.jsx";
 import Socio from "./pages/Socio.jsx";
 import Instructor from "./pages/Instructor.jsx";
 import SeccionDashboardPorRol from "./components/SeccionDashboardPorRol.jsx";
+import InscripcionRecepcion from "./pages/InscripcionRecepcion.jsx";
 
 export default function App() {
   return (
@@ -30,6 +31,9 @@ export default function App() {
       <Route path="recepcionista" element={<Recepcionista />} />
       <Route path="socio" element={<Socio />} />
       <Route path="instructor" element={<Instructor />} />
+
+      {/* FORMULARIO DE INSCRIPCIÓN DESDE RECEPCIÓN */}
+      <Route path="recepcionista/inscripciones" element={<InscripcionRecepcion />} />
 
       {/* SECCIONES DE RECEPCIONISTA */}
       <Route path="recepcionista/:seccion" element={<SeccionDashboardPorRol rol="recepcionista" />} />

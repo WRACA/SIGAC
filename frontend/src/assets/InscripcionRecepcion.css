@@ -1,0 +1,164 @@
+.inscripcion-contenedor {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 30px;
+  background: #141414;
+  border: 1px solid #2a2a2a;
+  border-radius: 14px;
+}
+
+.inscripcion-contenedor h2 {
+  color: #ffffff;
+  font-size: 28px;
+  margin-bottom: 12px;
+}
+
+.inscripcion-contenedor > p {
+  color: #b5b5b5;
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 30px;
+}
+
+/* FORMULARIO */
+
+.inscripcion-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inscripcion-formulario label {
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  margin-top: 10px;
+}
+
+/* CAMPOS */
+
+.inscripcion-formulario input,
+.inscripcion-formulario select {
+  width: 100%;
+  padding: 14px 16px;
+  background: #202020;
+  color: #ffffff;
+  border: 1px solid #383838;
+  border-radius: 8px;
+  font-size: 15px;
+  outline: none;
+}
+
+.inscripcion-formulario input:focus,
+.inscripcion-formulario select:focus {
+  border-color: #ff5a00;
+}
+
+.inscripcion-formulario input::placeholder {
+  color: #999999;
+}
+
+/* BOTÓN */
+
+.inscripcion-formulario button {
+  margin-top: 20px;
+  padding: 15px;
+  background: #ff5a00;
+  color: #060606;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.inscripcion-formulario button:hover {
+  background: #f26d21;
+}
+
+/* MENSAJES */
+
+.inscripcion-mensaje {
+  padding: 14px;
+  margin-top: 12px;
+  background: #262626;
+  border-left: 4px solid #ff5a00;
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* DISEÑO RESPONSIVE */
+
+@media (max-width: 700px) {
+  .inscripcion-contenedor {
+    padding: 20px;
+  }
+
+  .inscripcion-contenedor h2 {
+    font-size: 23px;
+  }
+
+  .inscripcion-formulario input,
+  .inscripcion-formulario select {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inscripcion-formulario button {
+    transition: none;
+  }
+}
+
+/* AUTOCOMPLETADO DE SOCIOS */
+
+.buscador-socios {
+  position: relative;
+}
+
+.sugerencias-socios {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: #202020;
+  border: 1px solid #383838;
+  border-radius: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.inscripcion-formulario .sugerencia-socio {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 13px 16px;
+  background: transparent;
+  color: #ffffff;
+  border: none;
+  border-radius: 0;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.inscripcion-formulario .sugerencia-socio:hover,
+.inscripcion-formulario .sugerencia-socio:focus-visible {
+  background: #ff5a00;
+  color: #060606;
+}
+
+.sin-resultados {
+  padding: 14px;
+  color: #aaaaaa;
+}
+
+.socio-seleccionado {
+  color: #ff8a45;
+  font-size: 14px;
+}
