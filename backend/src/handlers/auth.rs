@@ -79,18 +79,28 @@ pub async fn login(
     State(state): State<AppState>,
     Json(body): Json<LoginRequest>,
 ) -> Result<Json<Usuario>, ApiError> {
-    
-    let db = &state.auth_pool; 
+
+    let db = &state.auth_pool;
 
     let correo = body.correo.trim().to_lowercase();
+
     let credenciales_malas = (
         StatusCode::UNAUTHORIZED,
         "Credenciales incorrectas".to_string(),
     );
 
+    // Buscar usuario por correo
     let encontrado = sqlx::query_as::<_, UsuarioLogin>(
-        r#"SELECT id, nombre, correo, rol::text, password_hash AS password
-           FROM usuario WHERE correo = $1"# 
+        r#"
+        SELECT
+            id,
+            nombre,
+            correo,
+            rol::text AS rol,
+            password_hash AS password
+        FROM usuario
+        WHERE correo = $1 AND activo = TRUE
+        "#,
     )
     .bind(&correo)
     .fetch_optional(db)
@@ -101,11 +111,15 @@ pub async fn login(
         return Err(credenciales_malas);
     };
 
-    let es_correcta = bcrypt::verify(&body.password, &u.password).unwrap_or(false);
+    // Verificar la contraseña con bcrypt
+    let es_correcta = bcrypt::verify(&body.password, &u.password)
+        .unwrap_or(false);
+
     if !es_correcta {
         return Err(credenciales_malas);
     }
 
+    // Devolver los datos del usuario sin su contraseña
     Ok(Json(Usuario {
         id: u.id,
         nombre: u.nombre,
