@@ -4,8 +4,25 @@ use crate::AppState;
 use crate::errors::{error_interno, ApiError};
 use crate::models::{LoginRequest, RegisterRequest, Usuario, UsuarioLogin};
 
+use jsonwebtoken::{encode, Header, EncodingKey};
+use serde::{Deserialize, Serialize};
+use std::time::{SystemTime, UNIX_EPOCH};
+
 // Rol por defecto
 const ROL_POR_DEFECTO: &str = "socio";
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Claims {
+    pub id: i32,
+    pub rol: String,
+    pub exp: usize,
+}
+
+#[derive(Serialize)]
+pub struct LoginResponse {
+    pub usuario: Usuario,
+    pub token: String,
+}
 
 // ---------- POST /auth/register ----------
 pub async fn register(
@@ -78,7 +95,7 @@ pub async fn register(
 pub async fn login(
     State(state): State<AppState>,
     Json(body): Json<LoginRequest>,
-) -> Result<Json<Usuario>, ApiError> {
+) -> Result<Json<LoginResponse>, ApiError> {
     
     let db = &state.auth_pool; 
 
@@ -106,10 +123,33 @@ pub async fn login(
         return Err(credenciales_malas);
     }
 
-    Ok(Json(Usuario {
+    let expiracion = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Error de reloj".to_string()))?
+        .as_secs() as usize + (24 * 3600);
+
+    let claims = Claims {
         id: u.id,
-        nombre: u.nombre,
-        correo: u.correo,
-        rol: u.rol,
+        rol: u.rol.clone(),
+        exp: expiracion,
+    };
+
+    let secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "secret_desarrollo".to_string());
+
+    let token = encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_ref()),
+    )
+    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Error al generar el token".to_string()))?;
+
+    Ok(Json(LoginResponse {
+        usuario: Usuario {
+            id: u.id,
+            nombre: u.nombre,
+            correo: u.correo,
+            rol: u.rol,
+        },
+        token,
     }))
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { FaApple, FaFacebookF, FaGoogle, FaRegEye, FaRegEyeSlash } from "react-icons/fa6";
 // Importamos el servicio de autenticación
 import { login } from "../services/auth";
@@ -33,6 +34,8 @@ export default function Login() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  const navigate = useNavigate();
+
   const enviar = async (e) => {
     e.preventDefault();
     setError(null);
@@ -44,10 +47,24 @@ export default function Login() {
 
       // Guardar el token en el almacenamiento local
       localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.usuario));
       console.log('Autenticación exitosa', data);
 
-      // Redirigir al inicio o dashboard una vez logueado
-      // window.location.href = '/inicio';
+      //Redirigir segun el rol
+      switch (data.usuario.rol) {
+        case 'recepcionista':
+        case 'administrador':
+          navigate('/recepcion')
+          break;
+        case 'socio':
+          navigate('/socio')
+          break;
+        case 'coach':
+          navigate('/instructor')
+          break;
+        default:
+          setError("Rol no reconocido o sin vista asignada");
+      }
     } catch (err) {
       setError(err.message);
     } finally {
