@@ -15,6 +15,8 @@ import Instructor from "./pages/Instructor.jsx";
 import SeccionDashboardPorRol from "./components/SeccionDashboardPorRol.jsx";
 import InscripcionRecepcion from "./pages/InscripcionRecepcion.jsx";
 
+const AccesoDenegado = () => <div className="p-10 text-2xl font-bold text-red-500">Error 403: No tienes permisos para ver esta página</div>;
+
 export default function App() {
   return (
     <Routes>
