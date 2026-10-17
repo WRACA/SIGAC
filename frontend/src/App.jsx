@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
 import Inicio from "./pages/Inicio.jsx";
 import Deportes from "./pages/Deportes.jsx";
@@ -14,8 +14,7 @@ import Socio from "./pages/Socio.jsx";
 import Instructor from "./pages/Instructor.jsx";
 import SeccionDashboardPorRol from "./components/SeccionDashboardPorRol.jsx";
 import InscripcionRecepcion from "./pages/InscripcionRecepcion.jsx";
-
-const AccesoDenegado = () => <div className="p-10 text-2xl font-bold text-red-500">Error 403: No tienes permisos para ver esta página</div>;
+import AccesoDenegado from "./pages/AccesoDenegado.jsx";
 
 export default function App() {
   return (
@@ -50,6 +49,9 @@ export default function App() {
         <Route path="recepcion" element={<Recepcionista />} />
         <Route path="recepcion/inscripciones" element={<InscripcionRecepcion />} />
         <Route path="recepcion/:seccion" element={<SeccionDashboardPorRol rol="recepcionista" />} />
+        <Route path="recepcionista" element={<Navigate to="/recepcion" replace />} />
+        <Route path="recepcionista/inscripciones" element={<Navigate to="/recepcion/inscripciones" replace />} />
+        <Route path="recepcionista/:seccion" element={<Navigate to="/recepcion/:seccion" replace />} />
       </Route>
     </Routes>
   );
