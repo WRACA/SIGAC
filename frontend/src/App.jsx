@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
 import Inicio from "./pages/Inicio.jsx";
 import Deportes from "./pages/Deportes.jsx";
@@ -6,11 +6,15 @@ import Instalaciones from "./pages/Instalaciones.jsx";
 import Membresias from "./pages/Membresias.jsx";
 import Nosotros from "./pages/Nosotros.jsx";
 import Login from "./pages/Login.jsx";
+
+import { ProtectedRoute } from "./components/ProtectedRoute.jsx";
+
 import Recepcionista from "./pages/Recepcionista.jsx";
 import Socio from "./pages/Socio.jsx";
 import Instructor from "./pages/Instructor.jsx";
 import SeccionDashboardPorRol from "./components/SeccionDashboardPorRol.jsx";
 import InscripcionRecepcion from "./pages/InscripcionRecepcion.jsx";
+import AccesoDenegado from "./pages/AccesoDenegado.jsx";
 
 export default function App() {
   return (
@@ -24,26 +28,31 @@ export default function App() {
         <Route path="nosotros" element={<Nosotros />} />
       </Route>
 
-      {/* LOGIN */}
+      {/* RUTAS DE AUTENTICACIÓN Y ERRORES */}
       <Route path="login" element={<Login />} />
+      <Route path="acceso-denegado" element={<AccesoDenegado />} />
 
-      {/* VISTAS POR ROL */}
-      <Route path="recepcionista" element={<Recepcionista />} />
-      <Route path="socio" element={<Socio />} />
-      <Route path="instructor" element={<Instructor />} />
+      {/* RUTAS PROTEGIDAS PARA SOCIOS */}
+      <Route element={<ProtectedRoute rolesPermitidos={['socio']} />}>
+        <Route path="socio" element={<Socio />} />
+        <Route path="socio/:seccion" element={<SeccionDashboardPorRol rol="socio" />} />
+      </Route>
 
-      {/* FORMULARIO DE INSCRIPCIÓN DESDE RECEPCIÓN */}
-      <Route path="recepcionista/inscripciones" element={<InscripcionRecepcion />} />
+      {/* RUTAS PROTEGIDAS PARA INSTRUCTORES */}
+      <Route element={<ProtectedRoute rolesPermitidos={['instructor', 'coach']} />}>
+        <Route path="instructor" element={<Instructor />} />
+        <Route path="instructor/:seccion" element={<SeccionDashboardPorRol rol="instructor" />} />
+      </Route>
 
-      {/* SECCIONES DE RECEPCIONISTA */}
-      <Route path="recepcionista/:seccion" element={<SeccionDashboardPorRol rol="recepcionista" />} />
-
-      {/* SECCIONES DE SOCIO */}
-      <Route path="socio/:seccion" element={<SeccionDashboardPorRol rol="socio" />} />
-
-      {/* SECCIONES DE INSTRUCTOR */} 
-      <Route path="instructor/:seccion" element={<SeccionDashboardPorRol rol="instructor" />} />
-
+      {/* RUTAS PROTEGIDAS PARA RECEPCIONISTAS/ADMINISTRADORES */}
+      <Route element={<ProtectedRoute rolesPermitidos={['recepcionista', 'administrador']} />}>
+        <Route path="recepcion" element={<Recepcionista />} />
+        <Route path="recepcion/inscripciones" element={<InscripcionRecepcion />} />
+        <Route path="recepcion/:seccion" element={<SeccionDashboardPorRol rol="recepcionista" />} />
+        <Route path="recepcionista" element={<Navigate to="/recepcion" replace />} />
+        <Route path="recepcionista/inscripciones" element={<Navigate to="/recepcion/inscripciones" replace />} />
+        <Route path="recepcionista/:seccion" element={<Navigate to="/recepcion/:seccion" replace />} />
+      </Route>
     </Routes>
   );
 }

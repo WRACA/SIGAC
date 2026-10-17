@@ -22,6 +22,21 @@
   margin-bottom: 10px;
 }
 
+.dashboard-logo a,
+.dashboard-logo-link {
+  color: inherit;
+  text-decoration: none;
+  display: inline-block;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.dashboard-logo a:hover,
+.dashboard-logo-link:hover {
+  opacity: 0.88;
+  transform: scale(1.02);
+}
+
 .dashboard-logo span {
   color: #ff5a00;
 }
@@ -174,7 +189,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .dashboard-enlace,
-  .dashboard-tarjeta {
+  .dashboard-tarjeta,
+  .dashboard-logo a,
+  .dashboard-logo-link {
     transition: none;
   }
 }

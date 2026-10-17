@@ -5,10 +5,10 @@ const configuracion = {
   recepcionista: {
     nombre: "Recepcionista",
     opciones: [
-      { nombre: "Inicio", ruta: "/recepcionista" },
-      { nombre: "Socios", ruta: "/recepcionista/socios" },
-      { nombre: "Inscripciones", ruta: "/recepcionista/inscripciones" },
-      { nombre: "Actividades", ruta: "/recepcionista/actividades" },
+      { nombre: "Inicio", ruta: "/recepcion" },
+      { nombre: "Socios", ruta: "/recepcion/socios" },
+      { nombre: "Inscripciones", ruta: "/recepcion/inscripciones" },
+      { nombre: "Actividades", ruta: "/recepcion/actividades" },
     ],
   },
   socio: {
@@ -37,12 +37,15 @@ export default function SeccionDashboardPorRol({ rol }) {
   const { seccion } = useParams();
   const datos = configuracion[rol];
 
-  const opcion = datos.opciones.find(
-    (item) => item.ruta === `/${rol}/${seccion}`
+  const opcion = datos?.opciones.find(
+    (item) =>
+      item.ruta === `/${rol}/${seccion}` ||
+      item.ruta === `/recepcion/${seccion}` ||
+      item.ruta === `/recepcionista/${seccion}`
   );
 
   if (!opcion) {
-    return <Navigate to={`/${rol}`} replace />;
+    return <Navigate to={rol === "recepcionista" ? "/recepcion" : `/${rol}`} replace />;
   }
 
   return (

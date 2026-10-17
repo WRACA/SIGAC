@@ -91,21 +91,26 @@ export default function Inicio() {
       </section>
 
       {/* Deportes */}
-      <section className="relative z-[3] mx-[5%] -mt-[30px] grid grid-cols-8 rounded-[10px] border border-borde bg-gris max-[900px]:grid-cols-4">
+      <section className="relative z-[3] mx-[5%] -mt-[30px] grid grid-cols-8 rounded-[10px] border border-borde bg-gris shadow-2xl backdrop-blur max-[900px]:grid-cols-4 max-[500px]:grid-cols-2">
         {deportes.map(([icono, nombre, id], i) => (
-  <Link
-    key={nombre}
-    to={id ? `/deportes#${id}` : "/deportes"}
+          <Link
+            key={nombre}
+            to={id ? `/deportes#${id}` : "/deportes"}
+            title={id ? `Explorar ${nombre} en /deportes` : "Ver todos los deportes"}
             className={[
-              "flex flex-col items-center gap-2 border-r border-borde px-2 py-[22px] text-[.85rem] transition-colors hover:text-naranja last:border-r-0",
+              "group flex flex-col items-center justify-center gap-2 border-r border-borde px-2 py-[22px] text-[.85rem] font-medium transition-all duration-200 hover:bg-[#1a1a1a] hover:text-naranja last:border-r-0",
               i === 3 && "max-[900px]:border-r-0",
               i < 4 && "max-[900px]:border-b",
+              (i % 2 === 1) && "max-[500px]:border-r-0",
+              i < 6 && "max-[500px]:border-b",
             ]
               .filter(Boolean)
               .join(" ")}
           >
-            <span className="text-[1.6rem] brightness-[1.6] grayscale">{icono}</span>
-            {nombre}
+            <span className="text-[1.6rem] brightness-[1.4] grayscale transition-transform duration-200 group-hover:scale-115 group-hover:grayscale-0">
+              {icono}
+            </span>
+            <span>{nombre}</span>
           </Link>
         ))}
       </section>

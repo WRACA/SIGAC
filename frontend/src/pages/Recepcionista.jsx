@@ -1,10 +1,10 @@
 import DashboardLayout from "../components/DashboardLayout.jsx";
 
 const opciones = [
-  { nombre: "Inicio", ruta: "/recepcionista" },
-  { nombre: "Socios", ruta: "/recepcionista/socios" },
-  { nombre: "Inscripciones", ruta: "/recepcionista/inscripciones" },
-  { nombre: "Actividades", ruta: "/recepcionista/actividades" },
+  { nombre: "Inicio", ruta: "/recepcion" },
+  { nombre: "Socios", ruta: "/recepcion/socios" },
+  { nombre: "Inscripciones", ruta: "/recepcion/inscripciones" },
+  { nombre: "Actividades", ruta: "/recepcion/actividades" },
 ];
 
 const estadisticas = [
