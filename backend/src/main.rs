@@ -7,6 +7,9 @@ use sqlx::{postgres::PgPoolOptions, PgPool};
 
 use handlers::auth::{login, register};
 use handlers::actividades::listar_actividades;
+use handlers::recepcion::buscar_socios;
+use handlers::recepcion::actividades_inscripcion;
+use handlers::recepcion::registrar_inscripcion;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -52,11 +55,14 @@ async fn main() {
         public_pool,
     };
 
-    let app = Router::new()
-        .route("/api/auth/register", post(register))
-        .route("/api/auth/login", post(login))
-        .route("/api/actividades", get(listar_actividades))
-        .with_state(state);
+   let app = Router::new()
+    .route("/api/auth/register", post(register))
+    .route("/api/auth/login", post(login))
+    .route("/api/actividades", get(listar_actividades))
+    .route("/api/recepcion/socios", get(buscar_socios))
+    .route("/api/recepcion/actividades", get(actividades_inscripcion))
+    .route("/api/recepcion/inscripciones", post(registrar_inscripcion))
+    .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Servidor en http://localhost:3000");
