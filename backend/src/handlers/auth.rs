@@ -134,7 +134,11 @@ pub async fn login(
         exp: expiracion,
     };
 
-    let secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "secret_desarrollo".to_string());
+    let secret = std::env::var("JWT_SECRET")
+    .map_err(|_| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "Error de configuración del servidor".to_string()
+    ))?;
 
     let token = encode(
         &Header::default(),
