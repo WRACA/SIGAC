@@ -1,0 +1,184 @@
+
+.clases-instructor {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: 100%;
+}
+
+.clases-instructor-encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.clases-instructor-etiqueta {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: #ff5a00;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.clases-instructor-encabezado h2 {
+  margin: 0 0 10px;
+  color: #f2f2f2;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.clases-instructor-encabezado p {
+  margin: 0;
+  color: #b5b5b5;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.clases-instructor-total {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 130px;
+  padding: 18px 24px;
+  background: #141414;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+}
+
+.clases-instructor-total span {
+  color: #b5b5b5;
+  font-size: 12px;
+}
+
+.clases-instructor-total strong {
+  margin-top: 5px;
+  color: #ff5a00;
+  font-size: 30px;
+}
+
+.clases-instructor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.clase-instructor-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 24px;
+  background: #141414;
+  border: 1px solid #2a2a2a;
+  border-radius: 14px;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.clase-instructor-card:hover {
+  border-color: #ff5a00;
+  transform: translateY(-3px);
+}
+
+.clase-instructor-card-superior {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.clase-instructor-icono {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  color: #ff5a00;
+  background: rgba(255, 90, 0, 0.12);
+  border-radius: 10px;
+  font-size: 22px;
+}
+
+.clase-instructor-estado {
+  padding: 6px 11px;
+  color: #ff8a4c;
+  background: rgba(255, 90, 0, 0.12);
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.clase-instructor-card h3 {
+  margin: 0 0 20px;
+  color: #f2f2f2;
+  font-size: 19px;
+}
+
+.clase-instructor-detalles {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.clase-instructor-detalles p {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  color: #f2f2f2;
+  font-size: 14px;
+}
+
+.clase-instructor-detalles p span {
+  color: #888;
+  font-size: 12px;
+}
+
+.clase-instructor-boton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: auto;
+  padding: 12px 15px;
+  color: #fff;
+  background: #ff5a00;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.clase-instructor-boton:hover {
+  background: #e64f00;
+}
+
+.clase-instructor-boton span {
+  font-size: 19px;
+}
+
+@media (max-width: 768px) {
+  .clases-instructor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .clases-instructor-encabezado h2 {
+    font-size: 23px;
+  }
+}
+
+@media (max-width: 480px) {
+  .clase-instructor-card {
+    padding: 18px;
+  }
+
+  .clases-instructor-total {
+    width: 100%;
+  }
+}

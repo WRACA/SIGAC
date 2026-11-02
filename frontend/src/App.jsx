@@ -41,7 +41,9 @@ export default function App() {
       {/* SECCIONES DE SOCIO */}
       <Route path="socio/:seccion" element={<SeccionDashboardPorRol rol="socio" />} />
 
-      {/* SECCIONES DE INSTRUCTOR */} 
+      {/* SECCIONES DE INSTRUCTOR */}
+      <Route path="instructor/alumnos" element={<SociosInscritos />} />
+      <Route path="instructor/clases" element={<ClasesInstructor />} />
       <Route path="instructor/:seccion" element={<SeccionDashboardPorRol rol="instructor" />} />
 
     </Routes>
