@@ -89,3 +89,17 @@ pub struct InscripcionResponse {
     pub tipo_acceso: String,
     pub mensaje: String,
 }
+
+// Información privada del socio autenticado
+#[derive(Serialize, sqlx::FromRow)]
+pub struct PerfilSocio {
+    pub id: i32,
+    pub numero_socio: i32,
+    pub nombre: String,
+    pub apellido_p: String,
+    pub apellido_m: Option<String>,
+    pub correo: String,
+    pub telefono: Option<String>,
+    pub fecha_nacimiento: Option<String>,
+    pub fecha_alta: String,
+}

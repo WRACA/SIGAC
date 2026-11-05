@@ -1,6 +1,21 @@
+const API_URL = "/api/recepcion";
+
 // Obtiene el token JWT almacenado en localStorage
 function getToken() {
   return localStorage.getItem("token");
+}
+
+// Extrae el mensaje de error ya sea texto plano (Axum ApiError) o JSON
+async function obtenerMensajeError(respuesta, mensajePorDefecto) {
+  const texto = await respuesta.text().catch(() => "");
+  if (!texto) return mensajePorDefecto;
+
+  try {
+    const json = JSON.parse(texto);
+    return json.mensaje || json.error || mensajePorDefecto;
+  } catch {
+    return texto;
+  }
 }
 
 /**
@@ -11,7 +26,7 @@ function getToken() {
  */
 export async function buscarSocios(texto) {
   const respuesta = await fetch(
-    `/api/recepcion/socios?q=${encodeURIComponent(texto)}`,
+    `${API_URL}/socios?q=${encodeURIComponent(texto)}`,
     {
       headers: {
         Authorization: `Bearer ${getToken()}`,
@@ -20,8 +35,9 @@ export async function buscarSocios(texto) {
   );
 
   if (!respuesta.ok) {
-    const error = await respuesta.json().catch(() => ({}));
-    throw new Error(error.mensaje || "Error al buscar socios");
+    throw new Error(
+      await obtenerMensajeError(respuesta, "Error al buscar socios")
+    );
   }
 
   return respuesta.json();
@@ -33,15 +49,16 @@ export async function buscarSocios(texto) {
  * @returns {Promise<Array>} Lista de sesiones disponibles
  */
 export async function obtenerSesiones() {
-  const respuesta = await fetch("/api/recepcion/actividades", {
+  const respuesta = await fetch(`${API_URL}/actividades`, {
     headers: {
       Authorization: `Bearer ${getToken()}`,
     },
   });
 
   if (!respuesta.ok) {
-    const error = await respuesta.json().catch(() => ({}));
-    throw new Error(error.mensaje || "Error al obtener las sesiones");
+    throw new Error(
+      await obtenerMensajeError(respuesta, "Error al obtener las sesiones")
+    );
   }
 
   return respuesta.json();
@@ -55,7 +72,7 @@ export async function obtenerSesiones() {
  * @returns {Promise<Object>} Respuesta del servidor con el ID de la inscripción
  */
 export async function registrarInscripcion(socioId, sesionId) {
-  const respuesta = await fetch("/api/recepcion/inscripciones", {
+  const respuesta = await fetch(`${API_URL}/inscripciones`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -63,14 +80,15 @@ export async function registrarInscripcion(socioId, sesionId) {
     },
     body: JSON.stringify({
       socio_id: socioId,
-      sesion_id: sesionId,
+      sesion_id: Number(sesionId),
       tipo_acceso: "membresia",
     }),
   });
 
   if (!respuesta.ok) {
-    const error = await respuesta.json().catch(() => ({}));
-    throw new Error(error.mensaje || "Error al registrar la inscripción");
+    throw new Error(
+      await obtenerMensajeError(respuesta, "Error al registrar la inscripción")
+    );
   }
 
   return respuesta.json();

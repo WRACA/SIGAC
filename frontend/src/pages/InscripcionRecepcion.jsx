@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import DashboardLayout from "../components/DashboardLayout.jsx";
 import "../assets/InscripcionRecepcion.css";
 import {
@@ -16,7 +15,7 @@ const opciones = [
   { nombre: "Actividades", ruta: "/recepcion/actividades" },
 ];
 
-// Formatea una cadena ISO a "Lun 28 Oct · 09:00 – 10:00"
+// Formatea una sesión disponible para mostrar en el selector
 function formatearSesion(sesion) {
   const inicio = new Date(sesion.inicio);
   const fin = new Date(sesion.fin);
@@ -55,35 +54,83 @@ export default function InscripcionRecepcion() {
   const [enviando, setEnviando] = useState(false);
 
   const debounceRef = useRef(null);
+  const ultimaBusqueda = useRef(0);
+  const componenteActivo = useRef(false);
 
   // Cargar sesiones disponibles al montar el componente
   useEffect(() => {
-    obtenerSesiones()
-      .then((data) => setSesiones(data))
-      .catch((err) => {
+    componenteActivo.current = true;
+
+    async function cargarSesiones() {
+      setCargandoSesiones(true);
+      try {
+        const datos = await obtenerSesiones();
+        if (!componenteActivo.current) return;
+        setSesiones(Array.isArray(datos) ? datos : []);
+      } catch (err) {
+        if (!componenteActivo.current) return;
         setMensaje(err.message || "No se pudieron cargar las sesiones.");
         setTipoMensaje("error");
-      })
-      .finally(() => setCargandoSesiones(false));
+      } finally {
+        if (componenteActivo.current) {
+          setCargandoSesiones(false);
+        }
+      }
+    }
+
+    cargarSesiones();
+
+    return () => {
+      componenteActivo.current = false;
+      ultimaBusqueda.current += 1;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, []);
 
-  // Búsqueda de socios con debounce de 300ms
+  // Búsqueda de socios con debounce de 300ms y control de concurrencia
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     const texto = busqueda.trim();
 
     if (!texto || socioSeleccionado) {
+      ultimaBusqueda.current += 1;
       setSociosFiltrados([]);
+      setCargandoSocios(false);
       return;
     }
 
-    debounceRef.current = setTimeout(() => {
+    debounceRef.current = setTimeout(async () => {
+      const idBusqueda = ++ultimaBusqueda.current;
       setCargandoSocios(true);
-      buscarSocios(texto)
-        .then((data) => setSociosFiltrados(data))
-        .catch(() => setSociosFiltrados([]))
-        .finally(() => setCargandoSocios(false));
+
+      try {
+        const datos = await buscarSocios(texto);
+        if (
+          !componenteActivo.current ||
+          idBusqueda !== ultimaBusqueda.current
+        ) {
+          return;
+        }
+        setSociosFiltrados(Array.isArray(datos) ? datos : []);
+      } catch (err) {
+        if (
+          !componenteActivo.current ||
+          idBusqueda !== ultimaBusqueda.current
+        ) {
+          return;
+        }
+        setSociosFiltrados([]);
+        setMensaje(err.message || "No fue posible buscar socios.");
+        setTipoMensaje("error");
+      } finally {
+        if (
+          componenteActivo.current &&
+          idBusqueda === ultimaBusqueda.current
+        ) {
+          setCargandoSocios(false);
+        }
+      }
     }, 300);
 
     return () => clearTimeout(debounceRef.current);
@@ -91,19 +138,26 @@ export default function InscripcionRecepcion() {
 
   // Seleccionar un socio de las sugerencias
   function seleccionarSocio(socio) {
+    ultimaBusqueda.current += 1;
+    setCargandoSocios(false);
+
     const nombreCompleto = [socio.nombre, socio.apellido_p, socio.apellido_m]
       .filter(Boolean)
       .join(" ");
+
     setSocioSeleccionado(socio);
     setBusqueda(nombreCompleto);
     setSociosFiltrados([]);
     setMostrarSugerencias(false);
     setMensaje("");
+    setTipoMensaje("");
   }
 
   // Enviar inscripción al backend
   async function confirmarInscripcion(e) {
     e.preventDefault();
+
+    if (enviando) return;
 
     if (!socioSeleccionado) {
       setMensaje("Debes seleccionar un socio de las sugerencias.");
@@ -119,6 +173,7 @@ export default function InscripcionRecepcion() {
 
     setEnviando(true);
     setMensaje("");
+    setTipoMensaje("");
 
     try {
       const resultado = await registrarInscripcion(
@@ -127,15 +182,29 @@ export default function InscripcionRecepcion() {
       );
       setMensaje(resultado.mensaje || "Inscripción registrada correctamente.");
       setTipoMensaje("exito");
-      // Limpiar formulario tras éxito
+
+      // Limpiar formulario y actualizar cupos disponibles tras éxito
       setBusqueda("");
       setSocioSeleccionado(null);
       setSesionSeleccionada("");
+      setMostrarSugerencias(false);
+
+      obtenerSesiones()
+        .then((datos) => {
+          if (componenteActivo.current && Array.isArray(datos)) {
+            setSesiones(datos);
+          }
+        })
+        .catch(() => {});
     } catch (err) {
-      setMensaje(err.message || "Ocurrió un error al registrar la inscripción.");
+      setMensaje(
+        err.message || "Ocurrió un error al registrar la inscripción."
+      );
       setTipoMensaje("error");
     } finally {
-      setEnviando(false);
+      if (componenteActivo.current) {
+        setEnviando(false);
+      }
     }
   }
 
@@ -160,7 +229,6 @@ export default function InscripcionRecepcion() {
       opciones={opciones}
     >
       <div className="inscripcion-contenedor">
-
         <h2>Nueva inscripción</h2>
 
         <p>
@@ -172,14 +240,10 @@ export default function InscripcionRecepcion() {
           className="inscripcion-formulario"
           onSubmit={confirmarInscripcion}
         >
-
           {/* BUSCADOR DE SOCIOS */}
-          <label htmlFor="buscar-socio">
-            Buscar socio
-          </label>
+          <label htmlFor="buscar-socio">Buscar socio</label>
 
           <div className="buscador-socios">
-
             <input
               id="buscar-socio"
               type="text"
@@ -191,6 +255,7 @@ export default function InscripcionRecepcion() {
                 setSocioSeleccionado(null);
                 setMostrarSugerencias(true);
                 setMensaje("");
+                setTipoMensaje("");
               }}
               onFocus={() => {
                 if (!socioSeleccionado) setMostrarSugerencias(true);
@@ -202,9 +267,10 @@ export default function InscripcionRecepcion() {
               busqueda.trim() &&
               !socioSeleccionado && (
                 <div className="sugerencias-socios">
-
                   {cargandoSocios ? (
-                    <p className="sin-resultados">Buscando…</p>
+                    <p className="sin-resultados" role="status">
+                      Buscando socios…
+                    </p>
                   ) : sociosFiltrados.length > 0 ? (
                     sociosFiltrados.map((socio) => {
                       const nombre = [
@@ -230,10 +296,8 @@ export default function InscripcionRecepcion() {
                       No se encontraron socios.
                     </p>
                   )}
-
                 </div>
               )}
-
           </div>
 
           {/* SOCIO SELECCIONADO */}
@@ -244,17 +308,16 @@ export default function InscripcionRecepcion() {
           )}
 
           {/* SESIÓN DISPONIBLE */}
-          <label htmlFor="seleccionar-sesion">
-            Sesión disponible
-          </label>
+          <label htmlFor="seleccionar-sesion">Sesión disponible</label>
 
           <select
             id="seleccionar-sesion"
             value={sesionSeleccionada}
-            disabled={cargandoSesiones}
+            disabled={cargandoSesiones || enviando}
             onChange={(e) => {
               setSesionSeleccionada(e.target.value);
               setMensaje("");
+              setTipoMensaje("");
             }}
           >
             <option value="">
@@ -264,10 +327,7 @@ export default function InscripcionRecepcion() {
             </option>
 
             {sesiones.map((sesion) => (
-              <option
-                key={sesion.sesion_id}
-                value={sesion.sesion_id}
-              >
+              <option key={sesion.sesion_id} value={sesion.sesion_id}>
                 {formatearSesion(sesion)}
               </option>
             ))}
@@ -317,7 +377,7 @@ export default function InscripcionRecepcion() {
           <button
             type="submit"
             className="boton-inscripcion"
-            disabled={enviando}
+            disabled={enviando || cargandoSesiones}
           >
             {enviando ? "Registrando…" : "Confirmar inscripción"}
           </button>
@@ -331,7 +391,6 @@ export default function InscripcionRecepcion() {
               {mensaje}
             </p>
           )}
-
         </form>
       </div>
     </DashboardLayout>
