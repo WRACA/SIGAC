@@ -1,7 +1,12 @@
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import DashboardLayout from "../components/DashboardLayout.jsx";
 import "../assets/InscripcionRecepcion.css";
+import {
+  buscarSocios,
+  obtenerSesiones,
+  registrarInscripcion,
+} from "../services/inscripciones.js";
 
 // Menú de Recepcionista
 const opciones = [
@@ -11,67 +16,93 @@ const opciones = [
   { nombre: "Actividades", ruta: "/recepcion/actividades" },
 ];
 
-// Socios de ejemplo (después vendrán del backend)
-const socios = [
-  { id: 1, nombre: "Ana López" },
-  { id: 2, nombre: "Carlos Martínez" },
-  { id: 3, nombre: "María Hernández" },
-  { id: 4, nombre: "Camila Hernández" },
-  { id: 5, nombre: "Camilo López" },
-  { id: 6, nombre: "Camero Ruiz" },
-];
-
-// Actividades deportivas de SIGAC
-const actividades = [
-  { id: 1, nombre: "Fútbol" },
-  { id: 2, nombre: "Básquetbol" },
-  { id: 3, nombre: "Voleibol" },
-  { id: 4, nombre: "Tenis" },
-  { id: 5, nombre: "Pádel" },
-  { id: 6, nombre: "Natación" },
-  { id: 7, nombre: "Aerodanza" },
-  { id: 8, nombre: "Barre" },
-  { id: 9, nombre: "Baile Fit" },
-  { id: 10, nombre: "Baile en pareja" },
-  { id: 11, nombre: "Box" },
-  { id: 12, nombre: "Capoeira" },
-  { id: 13, nombre: "CrossFit" },
-  { id: 14, nombre: "Gimnasio" },
-  { id: 15, nombre: "MMA" },
-  { id: 16, nombre: "Taekwondo" },
-  { id: 17, nombre: "Yoga" },
-];
+// Formatea una cadena ISO a "Lun 28 Oct · 09:00 – 10:00"
+function formatearSesion(sesion) {
+  const inicio = new Date(sesion.inicio);
+  const fin = new Date(sesion.fin);
+  const fechaStr = inicio.toLocaleDateString("es-MX", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+  const horaInicio = inicio.toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const horaFin = fin.toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const lugar = sesion.lugar ? ` · ${sesion.lugar}` : "";
+  return `${sesion.actividad} — ${fechaStr} ${horaInicio}–${horaFin} | ${sesion.coach}${lugar} (${sesion.cupos_disponibles} cupos)`;
+}
 
 export default function InscripcionRecepcion() {
   const [busqueda, setBusqueda] = useState("");
   const [socioSeleccionado, setSocioSeleccionado] = useState(null);
-  const [actividadSeleccionada, setActividadSeleccionada] = useState("");
+  const [sesionSeleccionada, setSesionSeleccionada] = useState("");
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [mensaje, setMensaje] = useState("");
   const [tipoMensaje, setTipoMensaje] = useState("");
 
-  // Filtrar socios mientras se escribe
-  const sociosFiltrados = busqueda.trim()
-    ? socios.filter((socio) => {
-        const texto = busqueda.trim().toLowerCase();
+  // Resultados de la API
+  const [sociosFiltrados, setSociosFiltrados] = useState([]);
+  const [sesiones, setSesiones] = useState([]);
 
-        return (
-          socio.nombre.toLowerCase().includes(texto) ||
-          String(socio.id).includes(texto)
-        );
+  // Estados de carga
+  const [cargandoSocios, setCargandoSocios] = useState(false);
+  const [cargandoSesiones, setCargandoSesiones] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+
+  const debounceRef = useRef(null);
+
+  // Cargar sesiones disponibles al montar el componente
+  useEffect(() => {
+    obtenerSesiones()
+      .then((data) => setSesiones(data))
+      .catch((err) => {
+        setMensaje(err.message || "No se pudieron cargar las sesiones.");
+        setTipoMensaje("error");
       })
-    : [];
+      .finally(() => setCargandoSesiones(false));
+  }, []);
+
+  // Búsqueda de socios con debounce de 300ms
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    const texto = busqueda.trim();
+
+    if (!texto || socioSeleccionado) {
+      setSociosFiltrados([]);
+      return;
+    }
+
+    debounceRef.current = setTimeout(() => {
+      setCargandoSocios(true);
+      buscarSocios(texto)
+        .then((data) => setSociosFiltrados(data))
+        .catch(() => setSociosFiltrados([]))
+        .finally(() => setCargandoSocios(false));
+    }, 300);
+
+    return () => clearTimeout(debounceRef.current);
+  }, [busqueda, socioSeleccionado]);
 
   // Seleccionar un socio de las sugerencias
   function seleccionarSocio(socio) {
+    const nombreCompleto = [socio.nombre, socio.apellido_p, socio.apellido_m]
+      .filter(Boolean)
+      .join(" ");
     setSocioSeleccionado(socio);
-    setBusqueda(socio.nombre);
+    setBusqueda(nombreCompleto);
+    setSociosFiltrados([]);
     setMostrarSugerencias(false);
     setMensaje("");
   }
 
-  // Validar formulario
-  function confirmarInscripcion(e) {
+  // Enviar inscripción al backend
+  async function confirmarInscripcion(e) {
     e.preventDefault();
 
     if (!socioSeleccionado) {
@@ -80,17 +111,47 @@ export default function InscripcionRecepcion() {
       return;
     }
 
-    if (!actividadSeleccionada) {
-      setMensaje("Debes seleccionar una actividad deportiva.");
+    if (!sesionSeleccionada) {
+      setMensaje("Debes seleccionar una sesión disponible.");
       setTipoMensaje("error");
       return;
     }
 
-    setMensaje(
-      "Datos validados correctamente. La inscripción todavía no se ha registrado porque falta conectar el backend."
-    );
-    setTipoMensaje("aviso");
+    setEnviando(true);
+    setMensaje("");
+
+    try {
+      const resultado = await registrarInscripcion(
+        socioSeleccionado.id,
+        Number(sesionSeleccionada)
+      );
+      setMensaje(resultado.mensaje || "Inscripción registrada correctamente.");
+      setTipoMensaje("exito");
+      // Limpiar formulario tras éxito
+      setBusqueda("");
+      setSocioSeleccionado(null);
+      setSesionSeleccionada("");
+    } catch (err) {
+      setMensaje(err.message || "Ocurrió un error al registrar la inscripción.");
+      setTipoMensaje("error");
+    } finally {
+      setEnviando(false);
+    }
   }
+
+  const sesionActual = sesiones.find(
+    (s) => String(s.sesion_id) === sesionSeleccionada
+  );
+
+  const nombreSocio = socioSeleccionado
+    ? [
+        socioSeleccionado.nombre,
+        socioSeleccionado.apellido_p,
+        socioSeleccionado.apellido_m,
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : null;
 
   return (
     <DashboardLayout
@@ -104,7 +165,7 @@ export default function InscripcionRecepcion() {
 
         <p>
           Busca al socio que deseas inscribir y selecciona
-          la actividad deportiva correspondiente.
+          la sesión disponible correspondiente.
         </p>
 
         <form
@@ -132,9 +193,7 @@ export default function InscripcionRecepcion() {
                 setMensaje("");
               }}
               onFocus={() => {
-                if (!socioSeleccionado) {
-                  setMostrarSugerencias(true);
-                }
+                if (!socioSeleccionado) setMostrarSugerencias(true);
               }}
             />
 
@@ -144,17 +203,28 @@ export default function InscripcionRecepcion() {
               !socioSeleccionado && (
                 <div className="sugerencias-socios">
 
-                  {sociosFiltrados.length > 0 ? (
-                    sociosFiltrados.map((socio) => (
-                      <button
-                        key={socio.id}
-                        type="button"
-                        className="sugerencia-socio"
-                        onClick={() => seleccionarSocio(socio)}
-                      >
-                        {socio.nombre} - #{socio.id}
-                      </button>
-                    ))
+                  {cargandoSocios ? (
+                    <p className="sin-resultados">Buscando…</p>
+                  ) : sociosFiltrados.length > 0 ? (
+                    sociosFiltrados.map((socio) => {
+                      const nombre = [
+                        socio.nombre,
+                        socio.apellido_p,
+                        socio.apellido_m,
+                      ]
+                        .filter(Boolean)
+                        .join(" ");
+                      return (
+                        <button
+                          key={socio.id}
+                          type="button"
+                          className="sugerencia-socio"
+                          onClick={() => seleccionarSocio(socio)}
+                        >
+                          {nombre} — #{socio.numero_socio}
+                        </button>
+                      );
+                    })
                   ) : (
                     <p className="sin-resultados">
                       No se encontraron socios.
@@ -169,62 +239,87 @@ export default function InscripcionRecepcion() {
           {/* SOCIO SELECCIONADO */}
           {socioSeleccionado && (
             <p className="socio-seleccionado">
-              ✓ Socio seleccionado: {socioSeleccionado.nombre}
+              ✓ Socio seleccionado: {nombreSocio} — #{socioSeleccionado.numero_socio}
             </p>
           )}
 
-          {/* ACTIVIDAD DEPORTIVA */}
-          <label htmlFor="seleccionar-actividad">
-            Actividad deportiva
+          {/* SESIÓN DISPONIBLE */}
+          <label htmlFor="seleccionar-sesion">
+            Sesión disponible
           </label>
 
           <select
-            id="seleccionar-actividad"
-            value={actividadSeleccionada}
+            id="seleccionar-sesion"
+            value={sesionSeleccionada}
+            disabled={cargandoSesiones}
             onChange={(e) => {
-              setActividadSeleccionada(e.target.value);
+              setSesionSeleccionada(e.target.value);
               setMensaje("");
             }}
           >
             <option value="">
-              Selecciona una actividad
+              {cargandoSesiones
+                ? "Cargando sesiones…"
+                : "Selecciona una sesión"}
             </option>
 
-            {actividades.map((actividad) => (
+            {sesiones.map((sesion) => (
               <option
-                key={actividad.id}
-                value={actividad.id}
+                key={sesion.sesion_id}
+                value={sesion.sesion_id}
               >
-                {actividad.nombre}
+                {formatearSesion(sesion)}
               </option>
             ))}
           </select>
 
           {/* RESUMEN */}
-          {socioSeleccionado && actividadSeleccionada && (
+          {socioSeleccionado && sesionActual && (
             <div className="resumen-inscripcion">
               <h3>Resumen de inscripción</h3>
 
               <p>
                 <strong>Socio:</strong>{" "}
-                {socioSeleccionado.nombre}
+                {nombreSocio} — #{socioSeleccionado.numero_socio}
               </p>
 
               <p>
-                <strong>Actividad:</strong>{" "}
-                {
-                  actividades.find(
-                    (actividad) =>
-                      String(actividad.id) === actividadSeleccionada
-                  )?.nombre
-                }
+                <strong>Actividad:</strong> {sesionActual.actividad}
+              </p>
+
+              <p>
+                <strong>Horario:</strong>{" "}
+                {new Date(sesionActual.inicio).toLocaleString("es-MX")} –{" "}
+                {new Date(sesionActual.fin).toLocaleTimeString("es-MX", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
+
+              <p>
+                <strong>Coach:</strong> {sesionActual.coach}
+              </p>
+
+              {sesionActual.lugar && (
+                <p>
+                  <strong>Lugar:</strong> {sesionActual.lugar}
+                </p>
+              )}
+
+              <p>
+                <strong>Cupos disponibles:</strong>{" "}
+                {sesionActual.cupos_disponibles}
               </p>
             </div>
           )}
 
           {/* BOTÓN */}
-          <button type="submit" className="boton-inscripcion">
-            Validar inscripción
+          <button
+            type="submit"
+            className="boton-inscripcion"
+            disabled={enviando}
+          >
+            {enviando ? "Registrando…" : "Confirmar inscripción"}
           </button>
 
           {/* MENSAJES */}

@@ -49,14 +49,14 @@ pub async fn buscar_socios(
         "Token inválido o expirado".to_string(),
     ))?;
 
-    // Comprobar que la cuenta sigue activa y es recepcionista
+    // Comprobar que la cuenta sigue activa y es recepcionista o administrador
     let autorizado = sqlx::query_scalar::<_, bool>(
         r#"
         SELECT EXISTS (
             SELECT 1
             FROM usuario
             WHERE id = $1
-              AND rol = 'recepcionista'
+              AND rol IN ('recepcionista', 'administrador')
               AND activo = TRUE
         )
         "#,
@@ -149,14 +149,14 @@ pub async fn actividades_inscripcion(
         "Token inválido o expirado".to_string(),
     ))?;
 
-    // 3. Comprobar los permisos del recepcionista
+    // 3. Comprobar los permisos del recepcionista o administrador
     let autorizado = sqlx::query_scalar::<_, bool>(
         r#"
         SELECT EXISTS (
             SELECT 1
             FROM usuario
             WHERE id = $1
-              AND rol = 'recepcionista'
+              AND rol IN ('recepcionista', 'administrador')
               AND activo = TRUE
         )
         "#,
@@ -256,13 +256,13 @@ pub async fn registrar_inscripcion(
         "Token inválido o expirado".to_string(),
     ))?;
 
-    // 3. Comprobar que sea un recepcionista activo
+    // 3. Comprobar que sea un recepcionista o administrador activo
     let autorizado = sqlx::query_scalar::<_, bool>(
         r#"
         SELECT EXISTS (
             SELECT 1 FROM usuario
             WHERE id = $1
-              AND rol = 'recepcionista'
+              AND rol IN ('recepcionista', 'administrador')
               AND activo = TRUE
         )
         "#
