@@ -1,12 +1,11 @@
-
 import { useEffect, useRef, useState } from "react";
-import {
-  buscarSocios,
-  obtenerActividades,
-  registrarInscripcion,
-} from "../services/inscripciones.js";
 import DashboardLayout from "../components/DashboardLayout.jsx";
 import "../assets/InscripcionRecepcion.css";
+import {
+  buscarSocios,
+  obtenerSesiones,
+  registrarInscripcion,
+} from "../services/inscripciones.js";
 
 // Menú de Recepcionista
 const opciones = [
@@ -16,217 +15,212 @@ const opciones = [
   { nombre: "Actividades", ruta: "/recepcion/actividades" },
 ];
 
-// Socios de ejemplo para mostrar mientras se conecta el backend
-const socios = [
-  { id: 1, nombre: "Ana López" },
-  { id: 2, nombre: "Carlos Martínez" },
-  { id: 3, nombre: "María Hernández" },
-  { id: 4, nombre: "Camila Hernández" },
-  { id: 5, nombre: "Camilo López" },
-  { id: 6, nombre: "Camero Ruiz" },
-];
-
-// Actividades deportivas de SIGAC
-const actividades = [
-  { id: 1, nombre: "Fútbol" },
-  { id: 2, nombre: "Básquetbol" },
-  { id: 3, nombre: "Voleibol" },
-  { id: 4, nombre: "Tenis" },
-  { id: 5, nombre: "Pádel" },
-  { id: 6, nombre: "Natación" },
-  { id: 7, nombre: "Aerodanza" },
-  { id: 8, nombre: "Barre" },
-  { id: 9, nombre: "Baile Fit" },
-  { id: 10, nombre: "Baile en pareja" },
-  { id: 11, nombre: "Box" },
-  { id: 12, nombre: "Capoeira" },
-  { id: 13, nombre: "CrossFit" },
-  { id: 14, nombre: "Gimnasio" },
-  { id: 15, nombre: "MMA" },
-  { id: 16, nombre: "Taekwondo" },
-  { id: 17, nombre: "Yoga" },
-];
+// Formatea una sesión disponible para mostrar en el selector
+function formatearSesion(sesion) {
+  const inicio = new Date(sesion.inicio);
+  const fin = new Date(sesion.fin);
+  const fechaStr = inicio.toLocaleDateString("es-MX", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+  const horaInicio = inicio.toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const horaFin = fin.toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const lugar = sesion.lugar ? ` · ${sesion.lugar}` : "";
+  return `${sesion.actividad} — ${fechaStr} ${horaInicio}–${horaFin} | ${sesion.coach}${lugar} (${sesion.cupos_disponibles} cupos)`;
+}
 
 export default function InscripcionRecepcion() {
   const [busqueda, setBusqueda] = useState("");
-  const [cargandoSocios, setCargandoSocios] = useState(false);
-  const [cargandoActividades, setCargandoActividades] = useState(false);
-  const [guardandoInscripcion, setGuardandoInscripcion] = useState(false);
-
   const [socioSeleccionado, setSocioSeleccionado] = useState(null);
-  const [sociosDisponibles, setSociosDisponibles] = useState(socios);
-  const [actividadSeleccionada, setActividadSeleccionada] = useState("");
+  const [sesionSeleccionada, setSesionSeleccionada] = useState("");
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
-
   const [mensaje, setMensaje] = useState("");
   const [tipoMensaje, setTipoMensaje] = useState("");
-  const [actividadesDisponibles, setActividadesDisponibles] =
-    useState(actividades);
 
-  // Identifica la búsqueda más reciente.
+  // Resultados de la API
+  const [sociosFiltrados, setSociosFiltrados] = useState([]);
+  const [sesiones, setSesiones] = useState([]);
+
+  // Estados de carga
+  const [cargandoSocios, setCargandoSocios] = useState(false);
+  const [cargandoSesiones, setCargandoSesiones] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+
+  const debounceRef = useRef(null);
   const ultimaBusqueda = useRef(0);
-
-  // Evita actualizar el componente si ya se desmontó.
   const componenteActivo = useRef(false);
 
-  // Filtrar socios por nombre o número.
-  const sociosFiltrados = busqueda.trim()
-    ? sociosDisponibles.filter((socio) => {
-        const texto = busqueda.trim().toLowerCase();
-
-        return (
-          String(socio.nombre ?? "").toLowerCase().includes(texto) ||
-          String(socio.id).includes(texto)
-        );
-      })
-    : [];
-
-  // Cargar actividades desde el backend.
+  // Cargar sesiones disponibles al montar el componente
   useEffect(() => {
     componenteActivo.current = true;
 
-    async function cargarActividades() {
-      setCargandoActividades(true);
-
+    async function cargarSesiones() {
+      setCargandoSesiones(true);
       try {
-        const datos = await obtenerActividades();
-
+        const datos = await obtenerSesiones();
         if (!componenteActivo.current) return;
-
-        if (!Array.isArray(datos)) {
-          throw new Error("La respuesta de actividades no es válida.");
-        }
-
-        setActividadesDisponibles(datos);
-      } catch (error) {
+        setSesiones(Array.isArray(datos) ? datos : []);
+      } catch (err) {
         if (!componenteActivo.current) return;
-
-        setMensaje(
-          error.message || "No fue posible cargar las actividades."
-        );
+        setMensaje(err.message || "No se pudieron cargar las sesiones.");
         setTipoMensaje("error");
       } finally {
         if (componenteActivo.current) {
-          setCargandoActividades(false);
+          setCargandoSesiones(false);
         }
       }
     }
 
-    cargarActividades();
+    cargarSesiones();
 
     return () => {
       componenteActivo.current = false;
       ultimaBusqueda.current += 1;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, []);
 
-  // Buscar socios en el backend.
-  async function buscarSociosEnBackend(texto) {
-    const idBusqueda = ++ultimaBusqueda.current;
+  // Búsqueda de socios con debounce de 300ms y control de concurrencia
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    if (!texto.trim()) {
-      setSociosDisponibles(socios);
+    const texto = busqueda.trim();
+
+    if (!texto || socioSeleccionado) {
+      ultimaBusqueda.current += 1;
+      setSociosFiltrados([]);
       setCargandoSocios(false);
       return;
     }
 
-    setCargandoSocios(true);
+    debounceRef.current = setTimeout(async () => {
+      const idBusqueda = ++ultimaBusqueda.current;
+      setCargandoSocios(true);
 
-    try {
-      const datos = await buscarSocios(texto);
-
-      // Ignorar respuestas de búsquedas anteriores.
-      if (
-        !componenteActivo.current ||
-        idBusqueda !== ultimaBusqueda.current
-      ) {
-        return;
+      try {
+        const datos = await buscarSocios(texto);
+        if (
+          !componenteActivo.current ||
+          idBusqueda !== ultimaBusqueda.current
+        ) {
+          return;
+        }
+        setSociosFiltrados(Array.isArray(datos) ? datos : []);
+      } catch (err) {
+        if (
+          !componenteActivo.current ||
+          idBusqueda !== ultimaBusqueda.current
+        ) {
+          return;
+        }
+        setSociosFiltrados([]);
+        setMensaje(err.message || "No fue posible buscar socios.");
+        setTipoMensaje("error");
+      } finally {
+        if (
+          componenteActivo.current &&
+          idBusqueda === ultimaBusqueda.current
+        ) {
+          setCargandoSocios(false);
+        }
       }
+    }, 300);
 
-      if (!Array.isArray(datos)) {
-        throw new Error("La respuesta de socios no es válida.");
-      }
+    return () => clearTimeout(debounceRef.current);
+  }, [busqueda, socioSeleccionado]);
 
-      setSociosDisponibles(datos);
-    } catch (error) {
-      if (
-        !componenteActivo.current ||
-        idBusqueda !== ultimaBusqueda.current
-      ) {
-        return;
-      }
-
-      setSociosDisponibles([]);
-      setMensaje(error.message || "No fue posible buscar socios.");
-      setTipoMensaje("error");
-    } finally {
-      if (
-        componenteActivo.current &&
-        idBusqueda === ultimaBusqueda.current
-      ) {
-        setCargandoSocios(false);
-      }
-    }
-  }
-
-  // Seleccionar un socio de las sugerencias.
+  // Seleccionar un socio de las sugerencias
   function seleccionarSocio(socio) {
-    // Invalida cualquier búsqueda que siga pendiente.
     ultimaBusqueda.current += 1;
     setCargandoSocios(false);
 
+    const nombreCompleto = [socio.nombre, socio.apellido_p, socio.apellido_m]
+      .filter(Boolean)
+      .join(" ");
+
     setSocioSeleccionado(socio);
-    setBusqueda(socio.nombre);
+    setBusqueda(nombreCompleto);
+    setSociosFiltrados([]);
     setMostrarSugerencias(false);
     setMensaje("");
     setTipoMensaje("");
   }
 
-  // Registrar la inscripción.
+  // Enviar inscripción al backend
   async function confirmarInscripcion(e) {
     e.preventDefault();
 
-    if (guardandoInscripcion) return;
+    if (enviando) return;
 
     if (!socioSeleccionado) {
-      setMensaje("Debes seleccionar un socio.");
+      setMensaje("Debes seleccionar un socio de las sugerencias.");
       setTipoMensaje("error");
       return;
     }
 
-    if (!actividadSeleccionada) {
-      setMensaje("Debes seleccionar una actividad deportiva.");
+    if (!sesionSeleccionada) {
+      setMensaje("Debes seleccionar una sesión disponible.");
       setTipoMensaje("error");
       return;
     }
 
-    setGuardandoInscripcion(true);
+    setEnviando(true);
     setMensaje("");
     setTipoMensaje("");
 
     try {
-      await registrarInscripcion(
+      const resultado = await registrarInscripcion(
         socioSeleccionado.id,
-        actividadSeleccionada
+        Number(sesionSeleccionada)
       );
-
-      setMensaje("¡Inscripción registrada correctamente!");
+      setMensaje(resultado.mensaje || "Inscripción registrada correctamente.");
       setTipoMensaje("exito");
 
-      setSocioSeleccionado(null);
+      // Limpiar formulario y actualizar cupos disponibles tras éxito
       setBusqueda("");
-      setActividadSeleccionada("");
-      setSociosDisponibles(socios);
+      setSocioSeleccionado(null);
+      setSesionSeleccionada("");
       setMostrarSugerencias(false);
-    } catch (error) {
+
+      obtenerSesiones()
+        .then((datos) => {
+          if (componenteActivo.current && Array.isArray(datos)) {
+            setSesiones(datos);
+          }
+        })
+        .catch(() => {});
+    } catch (err) {
       setMensaje(
-        error.message || "No fue posible registrar la inscripción."
+        err.message || "Ocurrió un error al registrar la inscripción."
       );
       setTipoMensaje("error");
     } finally {
-      setGuardandoInscripcion(false);
+      if (componenteActivo.current) {
+        setEnviando(false);
+      }
     }
   }
+
+  const sesionActual = sesiones.find(
+    (s) => String(s.sesion_id) === sesionSeleccionada
+  );
+
+  const nombreSocio = socioSeleccionado
+    ? [
+        socioSeleccionado.nombre,
+        socioSeleccionado.apellido_p,
+        socioSeleccionado.apellido_m,
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : null;
 
   return (
     <DashboardLayout
@@ -239,7 +233,7 @@ export default function InscripcionRecepcion() {
 
         <p>
           Busca al socio que deseas inscribir y selecciona
-          la actividad deportiva correspondiente.
+          la sesión disponible correspondiente.
         </p>
 
         <form
@@ -257,98 +251,124 @@ export default function InscripcionRecepcion() {
               autoComplete="off"
               value={busqueda}
               onChange={(e) => {
-                const texto = e.target.value;
-
-                setBusqueda(texto);
+                setBusqueda(e.target.value);
                 setSocioSeleccionado(null);
                 setMostrarSugerencias(true);
                 setMensaje("");
                 setTipoMensaje("");
-
-                buscarSociosEnBackend(texto);
               }}
               onFocus={() => {
-                if (!socioSeleccionado) {
-                  setMostrarSugerencias(true);
-                }
+                if (!socioSeleccionado) setMostrarSugerencias(true);
               }}
             />
 
-            {/* SUGERENCIAS */}
-            {mostrarSugerencias && busqueda.trim() && !socioSeleccionado && (
-              <div className="sugerencias-socios">
-                {cargandoSocios ? (
-                  <p role="status">Buscando socios...</p>
-                ) : sociosFiltrados.length > 0 ? (
-                  sociosFiltrados.map((socio) => (
-                    <button
-                      key={socio.id}
-                      type="button"
-                      className="sugerencia-socio"
-                      onClick={() => seleccionarSocio(socio)}
-                    >
-                      {socio.nombre} - #{socio.id}
-                    </button>
-                  ))
-                ) : (
-                  <p className="sin-resultados">
-                    No se encontraron socios.
-                  </p>
-                )}
-              </div>
-            )}
+            {/* SUGERENCIAS AUTOMÁTICAS */}
+            {mostrarSugerencias &&
+              busqueda.trim() &&
+              !socioSeleccionado && (
+                <div className="sugerencias-socios">
+                  {cargandoSocios ? (
+                    <p className="sin-resultados" role="status">
+                      Buscando socios…
+                    </p>
+                  ) : sociosFiltrados.length > 0 ? (
+                    sociosFiltrados.map((socio) => {
+                      const nombre = [
+                        socio.nombre,
+                        socio.apellido_p,
+                        socio.apellido_m,
+                      ]
+                        .filter(Boolean)
+                        .join(" ");
+                      return (
+                        <button
+                          key={socio.id}
+                          type="button"
+                          className="sugerencia-socio"
+                          onClick={() => seleccionarSocio(socio)}
+                        >
+                          {nombre} — #{socio.numero_socio}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <p className="sin-resultados">
+                      No se encontraron socios.
+                    </p>
+                  )}
+                </div>
+              )}
           </div>
 
           {/* SOCIO SELECCIONADO */}
           {socioSeleccionado && (
             <p className="socio-seleccionado">
-              ✓ Socio seleccionado: {socioSeleccionado.nombre}
+              ✓ Socio seleccionado: {nombreSocio} — #{socioSeleccionado.numero_socio}
             </p>
           )}
 
-          {/* ACTIVIDAD DEPORTIVA */}
-          <label htmlFor="seleccionar-actividad">
-            Actividad deportiva
-          </label>
-
-          {cargandoActividades && (
-            <p role="status">Cargando actividades...</p>
-          )}
+          {/* SESIÓN DISPONIBLE */}
+          <label htmlFor="seleccionar-sesion">Sesión disponible</label>
 
           <select
-            id="seleccionar-actividad"
-            value={actividadSeleccionada}
-            disabled={cargandoActividades || guardandoInscripcion}
+            id="seleccionar-sesion"
+            value={sesionSeleccionada}
+            disabled={cargandoSesiones || enviando}
             onChange={(e) => {
-              setActividadSeleccionada(e.target.value);
+              setSesionSeleccionada(e.target.value);
               setMensaje("");
               setTipoMensaje("");
             }}
           >
-            <option value="">Selecciona una actividad</option>
+            <option value="">
+              {cargandoSesiones
+                ? "Cargando sesiones…"
+                : "Selecciona una sesión"}
+            </option>
 
-            {actividadesDisponibles.map((actividad) => (
-              <option key={actividad.id} value={actividad.id}>
-                {actividad.nombre}
+            {sesiones.map((sesion) => (
+              <option key={sesion.sesion_id} value={sesion.sesion_id}>
+                {formatearSesion(sesion)}
               </option>
             ))}
           </select>
 
           {/* RESUMEN */}
-          {socioSeleccionado && actividadSeleccionada && (
+          {socioSeleccionado && sesionActual && (
             <div className="resumen-inscripcion">
               <h3>Resumen de inscripción</h3>
 
               <p>
-                <strong>Socio:</strong> {socioSeleccionado.nombre}
+                <strong>Socio:</strong>{" "}
+                {nombreSocio} — #{socioSeleccionado.numero_socio}
               </p>
 
               <p>
-                <strong>Actividad:</strong>{" "}
-                {actividadesDisponibles.find(
-                  (actividad) =>
-                    String(actividad.id) === String(actividadSeleccionada)
-                )?.nombre ?? "Actividad seleccionada"}
+                <strong>Actividad:</strong> {sesionActual.actividad}
+              </p>
+
+              <p>
+                <strong>Horario:</strong>{" "}
+                {new Date(sesionActual.inicio).toLocaleString("es-MX")} –{" "}
+                {new Date(sesionActual.fin).toLocaleTimeString("es-MX", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
+
+              <p>
+                <strong>Coach:</strong> {sesionActual.coach}
+              </p>
+
+              {sesionActual.lugar && (
+                <p>
+                  <strong>Lugar:</strong> {sesionActual.lugar}
+                </p>
+              )}
+
+              <p>
+                <strong>Cupos disponibles:</strong>{" "}
+                {sesionActual.cupos_disponibles}
               </p>
             </div>
           )}
@@ -357,11 +377,9 @@ export default function InscripcionRecepcion() {
           <button
             type="submit"
             className="boton-inscripcion"
-            disabled={guardandoInscripcion || cargandoActividades}
+            disabled={enviando || cargandoSesiones}
           >
-            {guardandoInscripcion
-              ? "Registrando inscripción..."
-              : "Confirmar inscripción"}
+            {enviando ? "Registrando…" : "Confirmar inscripción"}
           </button>
 
           {/* MENSAJES */}
