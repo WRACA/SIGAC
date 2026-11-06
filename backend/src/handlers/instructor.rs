@@ -1,3 +1,4 @@
+
 use axum::{
     extract::State,
     http::{header, HeaderMap, StatusCode},
@@ -10,8 +11,11 @@ use crate::{
     AppState,
     errors::{error_interno, ApiError},
     handlers::auth::Claims,
-    models::SesionInstructor,
+    models::{SesionInstructor,AsistenciaRequest, AsistenciaResponse},
+    
 };
+
+
 
 // GET /api/instructor/sesiones
 pub async fn consultar_sesiones(
@@ -124,4 +128,210 @@ pub async fn consultar_sesiones(
 
     // 6. Devolver las sesiones en JSON
     Ok(Json(sesiones))
+}
+
+// Información necesaria para validar la sesión
+#[derive(sqlx::FromRow)]
+struct SesionAsistencia {
+    coach_id: i32,
+    en_horario: bool,
+    estado: String,
+}
+
+// PATCH /api/instructor/asistencia
+pub async fn registrar_asistencia(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<AsistenciaRequest>,
+) -> Result<Json<AsistenciaResponse>, ApiError> {
+
+    // 1. Obtener el JWT
+    let token = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .ok_or((
+            StatusCode::UNAUTHORIZED,
+            "Token requerido".to_string(),
+        ))?;
+
+    // 2. Validar el token
+    let secret = std::env::var("JWT_SECRET")
+        .map_err(|_| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Error de configuración".to_string(),
+        ))?;
+
+    let datos = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::new(Algorithm::HS256),
+    )
+    .map_err(|_| (
+        StatusCode::UNAUTHORIZED,
+        "Token inválido o expirado".to_string(),
+    ))?;
+
+    // 3. Comprobar el rol
+    if datos.claims.rol != "coach" {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Solo los instructores pueden registrar asistencias".to_string(),
+        ));
+    }
+
+    // 4. Obtener el coach_id del usuario autenticado
+    let coach_id = sqlx::query_scalar::<_, i32>(
+        r#"
+        SELECT c.id
+        FROM coach c
+        JOIN usuario u ON c.usuario_id = u.id
+        WHERE u.id = $1
+          AND u.rol = 'coach'
+          AND u.activo = TRUE
+        "#
+    )
+    .bind(datos.claims.id)
+    .fetch_optional(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    let Some(coach_id) = coach_id else {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "No tienes un perfil de instructor activo".to_string(),
+        ));
+    };
+
+    // 5. Consultar la sesión y verificar el horario
+    let sesion = sqlx::query_as::<_, SesionAsistencia>(
+        r#"
+        SELECT
+            coach_id,
+            (
+                inicio <= statement_timestamp()
+                AND statement_timestamp() < fin
+            ) AS en_horario,
+            estado::text AS estado
+        FROM sesion
+        WHERE id = $1
+        "#
+    )
+    .bind(body.sesion_id)
+    .fetch_optional(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    let Some(sesion) = sesion else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            "La sesión no existe".to_string(),
+        ));
+    };
+
+    // 6. Verificar que la sesión pertenezca al instructor
+    if sesion.coach_id != coach_id {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "No puedes registrar asistencia en una clase ajena".to_string(),
+        ));
+    }
+
+    // 7. Verificar el estado de la sesión
+    if sesion.estado != "programada" && sesion.estado != "en_curso" {
+        return Err((
+            StatusCode::CONFLICT,
+            "La sesión no permite registrar asistencias".to_string(),
+        ));
+    }
+
+    // 8. Verificar que estemos dentro del horario
+    if !sesion.en_horario {
+        return Err((
+            StatusCode::CONFLICT,
+            "Solo puedes registrar asistencias durante el horario de la sesión"
+                .to_string(),
+        ));
+    }
+
+    // 9. Comprobar que el socio esté inscrito
+    let inscripcion = sqlx::query_scalar::<_, String>(
+        r#"
+        SELECT estado::text
+        FROM inscripcion
+        WHERE socio_id = $1
+          AND sesion_id = $2
+        "#
+    )
+    .bind(body.socio_id)
+    .bind(body.sesion_id)
+    .fetch_optional(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    let Some(estado) = inscripcion else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            "El socio no está inscrito en esta sesión".to_string(),
+        ));
+    };
+
+    // 10. Evitar asistencias duplicadas o inscripciones canceladas
+    if estado != "inscrito" {
+        return Err((
+            StatusCode::CONFLICT,
+            "La inscripción ya fue procesada o no está activa".to_string(),
+        ));
+    }
+
+    // 11. Registrar la asistencia con una actualización condicionada
+    let id = sqlx::query_scalar::<_, i64>(
+        r#"
+        UPDATE inscripcion AS i
+        SET
+            estado = 'asistio',
+            fecha_asistencia = statement_timestamp(),
+            registrado_por = $3
+        FROM sesion AS s
+        WHERE i.socio_id = $1
+          AND i.sesion_id = $2
+          AND s.id = i.sesion_id
+          AND i.estado = 'inscrito'
+          AND s.coach_id = $4
+          AND s.estado IN ('programada', 'en_curso')
+          AND s.inicio <= statement_timestamp()
+          AND statement_timestamp() < s.fin
+          AND EXISTS (
+              SELECT 1
+              FROM coach c
+              JOIN usuario u ON c.usuario_id = u.id
+              WHERE c.id = s.coach_id
+                AND u.id = $3
+                AND u.rol = 'coach'
+                AND u.activo = TRUE
+          )
+        RETURNING i.id
+        "#
+    )
+    .bind(body.socio_id)
+    .bind(body.sesion_id)
+    .bind(datos.claims.id)
+    .bind(coach_id)
+    .fetch_optional(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    let Some(inscripcion_id) = id else {
+        return Err((
+            StatusCode::CONFLICT,
+            "No se pudo registrar: la asistencia ya fue marcada o la sesión dejó de estar disponible"
+                .to_string(),
+        ));
+    };
+
+    // 12. Respuesta de éxito
+    Ok(Json(AsistenciaResponse {
+        inscripcion_id,
+        mensaje: "Asistencia registrada correctamente".to_string(),
+    }))
 }

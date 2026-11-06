@@ -2,7 +2,7 @@ mod errors;
 mod handlers;
 mod models;
 
-use axum::{routing::{get,post}, Router};
+use axum::{routing::{get,post,patch}, Router};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 
 use handlers::auth::{login, register};
@@ -12,6 +12,7 @@ use handlers::recepcion::actividades_inscripcion;
 use handlers::recepcion::registrar_inscripcion;
 use handlers::perfil::obtener_perfil;
 use handlers::instructor::consultar_sesiones;
+use handlers::instructor::registrar_asistencia;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -66,6 +67,7 @@ async fn main() {
     .route("/api/recepcion/inscripciones", post(registrar_inscripcion))
     .route("/api/socio/perfil", get(obtener_perfil))
     .route("/api/instructor/sesiones", get(consultar_sesiones))
+    .route("/api/instructor/asistencia", patch(registrar_asistencia))
     .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();

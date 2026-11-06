@@ -115,3 +115,15 @@ pub struct SesionInstructor {
     pub estado: String,
     pub zona_horaria: String,
 }
+
+#[derive(Deserialize)]
+pub struct AsistenciaRequest {
+    pub socio_id: i32,
+    pub sesion_id: i64,
+}
+
+#[derive(Serialize)]
+pub struct AsistenciaResponse {
+    pub inscripcion_id: i64,
+    pub mensaje: String,
+}
