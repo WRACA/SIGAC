@@ -38,6 +38,10 @@ export default function App() {
         <Route path="socio/:seccion" element={<SeccionDashboardPorRol rol="socio" />} />
       </Route>
 
+      {/* SECCIONES DE INSTRUCTOR */}
+      <Route path="instructor/alumnos" element={<SociosInscritos />} />
+      <Route path="instructor/clases" element={<ClasesInstructor />} />
+      <Route path="instructor/:seccion" element={<SeccionDashboardPorRol rol="instructor" />} />
       {/* RUTAS PROTEGIDAS PARA INSTRUCTORES */}
       <Route element={<ProtectedRoute rolesPermitidos={['instructor', 'coach']} />}>
         <Route path="instructor" element={<Instructor />} />
