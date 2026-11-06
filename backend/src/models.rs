@@ -103,3 +103,15 @@ pub struct PerfilSocio {
     pub fecha_nacimiento: Option<String>,
     pub fecha_alta: String,
 }
+
+#[derive(serde::Serialize, sqlx::FromRow)]
+pub struct SesionInstructor {
+    pub sesion_id: i64,
+    pub actividad: String,
+    pub fecha: String,
+    pub hora_inicio: String,
+    pub hora_fin: String,
+    pub lugar: Option<String>,
+    pub estado: String,
+    pub zona_horaria: String,
+}

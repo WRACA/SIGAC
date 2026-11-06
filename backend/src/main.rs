@@ -11,6 +11,7 @@ use handlers::recepcion::buscar_socios;
 use handlers::recepcion::actividades_inscripcion;
 use handlers::recepcion::registrar_inscripcion;
 use handlers::perfil::obtener_perfil;
+use handlers::instructor::consultar_sesiones;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -64,6 +65,7 @@ async fn main() {
     .route("/api/recepcion/actividades", get(actividades_inscripcion))
     .route("/api/recepcion/inscripciones", post(registrar_inscripcion))
     .route("/api/socio/perfil", get(obtener_perfil))
+    .route("/api/instructor/sesiones", get(consultar_sesiones))
     .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
