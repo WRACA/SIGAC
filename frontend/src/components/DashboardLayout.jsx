@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import "../assets/Dashboard.css";
 
 export default function DashboardLayout({ titulo, rol, opciones, children }) {
@@ -9,7 +9,15 @@ export default function DashboardLayout({ titulo, rol, opciones, children }) {
       <aside className="dashboard-sidebar">
 
         <h2 className="dashboard-logo">
-          SIG<span>AC</span>
+          <Link
+            to="/"
+            id="dashboard-logo-inicio"
+            className="dashboard-logo-link"
+            title="Volver al inicio"
+            aria-label="SIGAC - Volver al inicio"
+          >
+            SIG<span>AC</span>
+          </Link>
         </h2>
 
         <p className="dashboard-rol">{rol}</p>
@@ -19,6 +27,7 @@ export default function DashboardLayout({ titulo, rol, opciones, children }) {
             <NavLink
               key={opcion.ruta}
               to={opcion.ruta}
+              end={opcion.end ?? true}
               className={({ isActive }) =>
                 isActive ? "dashboard-enlace activo" : "dashboard-enlace"
               }

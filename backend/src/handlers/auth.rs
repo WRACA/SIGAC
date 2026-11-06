@@ -1,25 +1,44 @@
 use axum::{extract::State, http::StatusCode, Json};
-use sqlx::PgPool;
 
+use crate::AppState;
 use crate::errors::{error_interno, ApiError};
 use crate::models::{LoginRequest, RegisterRequest, Usuario, UsuarioLogin};
 
-// rol por defecto que recibira cada usuario que se registre de momento
-const ROL_POR_DEFECTO: &str = "estudiante";
+use jsonwebtoken::{encode, Header, EncodingKey};
+use serde::{Deserialize, Serialize};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+// Rol por defecto
+const ROL_POR_DEFECTO: &str = "socio";
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Claims {
+    pub id: i32,
+    pub rol: String,
+    pub exp: usize,
+}
+
+#[derive(Serialize)]
+pub struct LoginResponse {
+    pub usuario: Usuario,
+    pub token: String,
+}
 
 // ---------- POST /auth/register ----------
 pub async fn register(
-    State(db): State<PgPool>,
+    State(state): State<AppState>,
     Json(body): Json<RegisterRequest>,
 ) -> Result<(StatusCode, Json<Usuario>), ApiError> {
+    let db = &state.api_pool;
+
     let correo = body.correo.trim().to_lowercase();
     let nombre = body.nombre.trim().to_string();
+    let apellido_p = body.apellido_p.trim().to_string();
 
-    // validar que los datos tengan el formato apropiado
     if !correo.contains('@') || correo.len() > 150 {
-        return Err((StatusCode::BAD_REQUEST, "Correo inválido".to_string()));
+        return Err((StatusCode::BAD_REQUEST, "Correo inválido.".to_string()));
     }
-    if nombre.is_empty() || nombre.len() > 100 {
+    if nombre.is_empty() || nombre.len() > 150 {
         return Err((StatusCode::BAD_REQUEST, "Nombre inválido".to_string()));
     }
     if body.password.len() < 8 || body.password.len() > 72 {
@@ -29,10 +48,9 @@ pub async fn register(
         ));
     }
 
-    // revisa que el correo no exista ya
-    let existe = sqlx::query_scalar::<_, i32>("SELECT 1 FROM usuarios WHERE correo = $1")
+    let existe = sqlx::query_scalar::<_, i32>("SELECT 1 FROM usuario WHERE correo = $1")
         .bind(&correo)
-        .fetch_optional(&db)
+        .fetch_optional(db)
         .await
         .map_err(error_interno)?;
 
@@ -40,7 +58,6 @@ pub async fn register(
         return Err((StatusCode::CONFLICT, "Ese correo ya está registrado".to_string()));
     }
 
-    // Encriptar la contraseña
     let hash = bcrypt::hash(&body.password, bcrypt::DEFAULT_COST).map_err(|_| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -48,17 +65,26 @@ pub async fn register(
         )
     })?;
 
-    // Guardar en la base de datos
     let usuario = sqlx::query_as::<_, Usuario>(
-        r#"INSERT INTO usuarios (nombre, correo, "contraseña", rol)
-           VALUES ($1, $2, $3, $4)
-           RETURNING id, nombre, correo, rol"#,
+        r#"
+        WITH nuevo_usuario AS (
+            INSERT INTO usuario (nombre, apellido_p, correo, password_hash, rol)
+            VALUES ($1, $2, $3, $4, $5::rol_usuario)
+            RETURNING id, nombre, correo, rol
+        ),
+        nuevo_socio AS (
+            INSERT INTO socio (usuario_id)
+            SELECT id FROM nuevo_usuario
+        )
+        SELECT id, nombre, correo, rol::text FROM nuevo_usuario
+        "#
     )
     .bind(&nombre)
+    .bind(&apellido_p)
     .bind(&correo)
     .bind(&hash)
     .bind(ROL_POR_DEFECTO)
-    .fetch_one(&db)
+    .fetch_one(db)
     .await
     .map_err(error_interno)?;
 
@@ -67,22 +93,24 @@ pub async fn register(
 
 // ---------- POST /auth/login ----------
 pub async fn login(
-    State(db): State<PgPool>,
+    State(state): State<AppState>,
     Json(body): Json<LoginRequest>,
-) -> Result<Json<Usuario>, ApiError> {
+) -> Result<Json<LoginResponse>, ApiError> {
+    
+    let db = &state.auth_pool; 
+
     let correo = body.correo.trim().to_lowercase();
     let credenciales_malas = (
         StatusCode::UNAUTHORIZED,
         "Credenciales incorrectas".to_string(),
     );
 
-    // buscar usuario por correo
     let encontrado = sqlx::query_as::<_, UsuarioLogin>(
-        r#"SELECT id, nombre, correo, rol, "contraseña" AS password
-           FROM usuarios WHERE correo = $1"#,
+        r#"SELECT id, nombre, correo, rol::text, password_hash AS password
+           FROM usuario WHERE correo = $1"# 
     )
     .bind(&correo)
-    .fetch_optional(&db)
+    .fetch_optional(db)
     .await
     .map_err(error_interno)?;
 
@@ -90,17 +118,42 @@ pub async fn login(
         return Err(credenciales_malas);
     };
 
-    // comparamos la contraseña escrita con el hash guardado
     let es_correcta = bcrypt::verify(&body.password, &u.password).unwrap_or(false);
     if !es_correcta {
         return Err(credenciales_malas);
     }
 
-    // si todo esta correcto entonces devolvemos los datos del usuario (sin contraseña)
-    Ok(Json(Usuario {
+    let expiracion = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Error de reloj".to_string()))?
+        .as_secs() as usize + (24 * 3600);
+
+    let claims = Claims {
         id: u.id,
-        nombre: u.nombre,
-        correo: u.correo,
-        rol: u.rol,
+        rol: u.rol.clone(),
+        exp: expiracion,
+    };
+
+    let secret = std::env::var("JWT_SECRET")
+    .map_err(|_| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "Error de configuración del servidor".to_string()
+    ))?;
+
+    let token = encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_ref()),
+    )
+    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Error al generar el token".to_string()))?;
+
+    Ok(Json(LoginResponse {
+        usuario: Usuario {
+            id: u.id,
+            nombre: u.nombre,
+            correo: u.correo,
+            rol: u.rol,
+        },
+        token,
     }))
 }
