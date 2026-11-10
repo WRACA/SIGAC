@@ -71,3 +71,29 @@ export async function obtenerDetalleClase(sesionId) {
   return respuesta.json();
 }
 
+/**
+ * Consulta los socios inscritos en una clase o sesión determinada del instructor.
+ * GET /api/instructor/sesiones/{id}/inscritos
+ * @param {number|string} sesionId - ID de la sesión o clase
+ * @returns {Promise<Array>} Lista de socios inscritos con id, numero_socio, nombre, apellidos y estado
+ */
+export async function obtenerInscritosClase(sesionId) {
+  const token = getToken();
+
+  const respuesta = await fetch(`${API_URL}/sesiones/${sesionId}/inscritos`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!respuesta.ok) {
+    throw new Error(
+      await obtenerMensajeError(
+        respuesta,
+        "No fue posible consultar los socios inscritos en la clase."
+      )
+    );
+  }
+
+  return respuesta.json();
+}
