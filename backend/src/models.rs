@@ -133,6 +133,16 @@ pub struct AlumnoClase {
     pub estado_inscripcion: String,
 }
 
+#[derive(serde::Serialize, sqlx::FromRow, Clone, Debug)]
+pub struct SocioInscritoSesion {
+    pub id: i32,
+    pub numero_socio: i32,
+    pub nombre: String,
+    pub apellido_p: String,
+    pub apellido_m: Option<String>,
+    pub estado: String,
+}
+
 #[derive(serde::Serialize, Clone, Debug)]
 pub struct SesionDetalleInstructor {
     #[serde(flatten)]
