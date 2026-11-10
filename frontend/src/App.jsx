@@ -12,6 +12,8 @@ import { ProtectedRoute } from "./components/ProtectedRoute.jsx";
 import Recepcionista from "./pages/Recepcionista.jsx";
 import Socio from "./pages/Socio.jsx";
 import Instructor from "./pages/Instructor.jsx";
+import ClasesInstructor from "./pages/ClasesInstructor.jsx";
+import SociosInscritos from "./pages/SociosInscritos.jsx";
 import SeccionDashboardPorRol from "./components/SeccionDashboardPorRol.jsx";
 import InscripcionRecepcion from "./pages/InscripcionRecepcion.jsx";
 import AccesoDenegado from "./pages/AccesoDenegado.jsx";
@@ -38,13 +40,11 @@ export default function App() {
         <Route path="socio/:seccion" element={<SeccionDashboardPorRol rol="socio" />} />
       </Route>
 
-      {/* SECCIONES DE INSTRUCTOR */}
-      <Route path="instructor/alumnos" element={<SociosInscritos />} />
-      <Route path="instructor/clases" element={<ClasesInstructor />} />
-      <Route path="instructor/:seccion" element={<SeccionDashboardPorRol rol="instructor" />} />
       {/* RUTAS PROTEGIDAS PARA INSTRUCTORES */}
       <Route element={<ProtectedRoute rolesPermitidos={['instructor', 'coach']} />}>
         <Route path="instructor" element={<Instructor />} />
+        <Route path="instructor/clases" element={<ClasesInstructor />} />
+        <Route path="instructor/alumnos" element={<SociosInscritos />} />
         <Route path="instructor/:seccion" element={<SeccionDashboardPorRol rol="instructor" />} />
       </Route>
 

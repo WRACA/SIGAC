@@ -264,20 +264,20 @@ export default function PaseLista() {
                   <table className="pase-lista-tabla">
                     <thead>
                       <tr>
-                        <th>Identificador</th>
-                        <th>Nombre del socio</th>
+                        <th style={{ width: "60px", textAlign: "center" }}>#</th>
+                        <th>Nombre del alumno</th>
                         <th>Asistencia</th>
                         <th>Acción</th>
                       </tr>
                     </thead>
 
                     <tbody>
-                      {socios.map((socio) => {
+                      {socios.map((socio, index) => {
                         const registrada = yaTieneAsistencia(socio.id);
 
                         return (
                           <tr key={socio.id}>
-                            <td>{socio.id}</td>
+                            <td style={{ textAlign: "center", color: "#888" }}>{index + 1}</td>
                             <td>{socio.nombre}</td>
                             <td>
                               <span className={
