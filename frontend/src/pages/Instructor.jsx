@@ -273,7 +273,6 @@ export default function Instructor() {
 
         {error && !cargando && (
           <div className="clases-vacio">
-            <div className="clases-vacio-icono">⚠️</div>
             <h3>Error al cargar las clases</h3>
             <p>{error}</p>
             <button
@@ -289,7 +288,6 @@ export default function Instructor() {
         {/* MENSAJE CUANDO NO EXISTEN CLASES ASIGNADAS (CRITERIO 5) */}
         {!cargando && !error && clases.length === 0 && (
           <div className="clases-vacio">
-            <div className="clases-vacio-icono">📅</div>
             <h3>No tienes clases asignadas</h3>
             <p>
               Actualmente no cuentas con clases ni sesiones programadas bajo tu
@@ -312,7 +310,6 @@ export default function Instructor() {
           clases.length > 0 &&
           clasesFiltradas.length === 0 && (
             <div className="clases-vacio">
-              <div className="clases-vacio-icono">🔍</div>
               <h3>No hay clases para este filtro</h3>
               <p>
                 No tienes ninguna clase con el estado seleccionado (
@@ -363,7 +360,7 @@ export default function Instructor() {
                   {/* PARTE SUPERIOR DE LA TARJETA */}
                   <div className="clase-instructor-card-superior">
                     <span className="clase-instructor-icono">
-                      {esEnCurso ? "⚡" : esProxima ? "📅" : "✓"}
+                      <span>✦</span>
                     </span>
 
                     {/* DISTINCIÓN VISUAL DEL ESTADO (CRITERIO 6) */}
