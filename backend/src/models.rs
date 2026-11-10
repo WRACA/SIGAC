@@ -104,16 +104,40 @@ pub struct PerfilSocio {
     pub fecha_alta: String,
 }
 
-#[derive(serde::Serialize, sqlx::FromRow)]
+#[derive(serde::Serialize, sqlx::FromRow, Clone, Debug)]
 pub struct SesionInstructor {
     pub sesion_id: i64,
     pub actividad: String,
+    pub descripcion: Option<String>,
     pub fecha: String,
     pub hora_inicio: String,
     pub hora_fin: String,
     pub lugar: Option<String>,
     pub estado: String,
+    pub estado_tiempo: String,
+    pub cupo: i16,
+    pub total_inscritos: i64,
+    pub cupos_disponibles: i64,
+    pub inicio_iso: String,
+    pub fin_iso: String,
     pub zona_horaria: String,
+}
+
+#[derive(serde::Serialize, sqlx::FromRow, Clone, Debug)]
+pub struct AlumnoClase {
+    pub socio_id: i32,
+    pub numero_socio: i32,
+    pub nombre: String,
+    pub apellido_p: String,
+    pub apellido_m: Option<String>,
+    pub estado_inscripcion: String,
+}
+
+#[derive(serde::Serialize, Clone, Debug)]
+pub struct SesionDetalleInstructor {
+    #[serde(flatten)]
+    pub sesion: SesionInstructor,
+    pub alumnos: Vec<AlumnoClase>,
 }
 
 #[derive(Deserialize)]
