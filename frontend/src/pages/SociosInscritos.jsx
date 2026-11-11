@@ -10,8 +10,9 @@ import "../assets/SociosInscritos.css";
 const opciones = [
   { nombre: "Inicio", ruta: "/instructor" },
   { nombre: "Mis clases", ruta: "/instructor/clases" },
-  { nombre: "Mis horarios", ruta: "/instructor/horarios" },
+  { nombre: "Pase de lista", ruta: "/instructor/asistencia" },
   { nombre: "Mis alumnos", ruta: "/instructor/alumnos" },
+  { nombre: "Mis horarios", ruta: "/instructor/horarios" },
   { nombre: "Mi perfil", ruta: "/instructor/perfil" },
 ];
 

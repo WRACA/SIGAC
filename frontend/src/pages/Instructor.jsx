@@ -1,60 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout.jsx";
 import {
   obtenerClasesInstructor,
   obtenerDetalleClase,
 } from "../services/instructor.js";
+import {
+  formatearFecha,
+  formatearHora,
+  ordenarClasesPriorizadas,
+} from "../utils/clasesUtils.js";
 import "../assets/ClasesInstructor.css";
 
 const opciones = [
   { nombre: "Inicio", ruta: "/instructor" },
   { nombre: "Mis clases", ruta: "/instructor/clases" },
-  { nombre: "Mis horarios", ruta: "/instructor/horarios" },
+  { nombre: "Pase de lista", ruta: "/instructor/asistencia" },
   { nombre: "Mis alumnos", ruta: "/instructor/alumnos" },
+  { nombre: "Mis horarios", ruta: "/instructor/horarios" },
   { nombre: "Mi perfil", ruta: "/instructor/perfil" },
 ];
-
-// Formatea una fecha YYYY-MM-DD en español legible (ej. "Martes, 10 de nov de 2026")
-function formatearFecha(fechaStr) {
-  if (!fechaStr) return "Fecha no disponible";
-  try {
-    const partes = fechaStr.split("-");
-    if (partes.length === 3) {
-      const fecha = new Date(
-        Number(partes[0]),
-        Number(partes[1]) - 1,
-        Number(partes[2])
-      );
-      return fecha.toLocaleDateString("es-MX", {
-        weekday: "long",
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    }
-    const fecha = new Date(fechaStr);
-    return fecha.toLocaleDateString("es-MX", {
-      weekday: "long",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return fechaStr;
-  }
-}
-
-// Formatea la hora HH:MM a formato legible con AM/PM
-function formatearHora(horaStr) {
-  if (!horaStr) return "";
-  const [h, m] = horaStr.split(":");
-  if (h === undefined || m === undefined) return horaStr;
-  const horas = parseInt(h, 10);
-  const periodo = horas >= 12 ? "PM" : "AM";
-  const horas12 = horas % 12 || 12;
-  return `${horas12}:${m} ${periodo}`;
-}
 
 export default function Instructor() {
   const navigate = useNavigate();
@@ -63,6 +28,9 @@ export default function Instructor() {
   const [clases, setClases] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
+
+  // Reloj interno para actualizar estado y orden en caliente sin recargar ni cerrar sesión
+  const [ahora, setAhora] = useState(() => new Date());
 
   // Filtro de estado ("todas", "en_curso", "proxima", "finalizada")
   const [filtroEstado, setFiltroEstado] = useState("todas");
@@ -92,6 +60,15 @@ export default function Instructor() {
     cargarClases();
   }, []);
 
+  // Timer para actualizar "ahora" cada 10 segundos, recalculando el orden sin recargar la página
+  useEffect(() => {
+    const intervalo = setInterval(() => {
+      setAhora(new Date());
+    }, 10000);
+
+    return () => clearInterval(intervalo);
+  }, []);
+
   // Bloquear el scroll de la página de fondo cuando el modal de detalles está abierto
   useEffect(() => {
     if (claseSeleccionada) {
@@ -103,6 +80,12 @@ export default function Instructor() {
     }
   }, [claseSeleccionada]);
 
+  // Lista ordenada prioritariamente: clases en curso primero (ordenadas entre sí por hora de inicio)
+  // y las demás en orden cronológico coherente.
+  const clasesOrdenadas = useMemo(() => {
+    return ordenarClasesPriorizadas(clases, ahora);
+  }, [clases, ahora]);
+
   // Seleccionar una clase y abrir sus detalles
   async function abrirDetallesClase(clase) {
     setClaseSeleccionada(clase);
@@ -113,7 +96,6 @@ export default function Instructor() {
       const detalle = await obtenerDetalleClase(clase.sesion_id);
       setDetalleCompleto(detalle);
     } catch {
-      // Si falla la consulta de detalle extendido, se muestran los datos de la clase base
       setDetalleCompleto({ sesion: clase, alumnos: [] });
     } finally {
       setDetalleCargando(false);
@@ -125,20 +107,20 @@ export default function Instructor() {
     setDetalleCompleto(null);
   }
 
-  // Conteo de clases por estado temporal
-  const totalClases = clases.length;
-  const totalEnCurso = clases.filter(
+  // Conteo de clases por estado temporal recalculado en tiempo real
+  const totalClases = clasesOrdenadas.length;
+  const totalEnCurso = clasesOrdenadas.filter(
     (c) => c.estado_tiempo === "en_curso"
   ).length;
-  const totalProximas = clases.filter(
+  const totalProximas = clasesOrdenadas.filter(
     (c) => c.estado_tiempo === "proxima"
   ).length;
-  const totalFinalizadas = clases.filter(
+  const totalFinalizadas = clasesOrdenadas.filter(
     (c) => c.estado_tiempo === "finalizada"
   ).length;
 
-  // Filtrado de clases según el tab seleccionado (manteniendo el orden cronológico)
-  const clasesFiltradas = clases.filter((clase) => {
+  // Filtrado de clases según el tab seleccionado (manteniendo la priorización)
+  const clasesFiltradas = clasesOrdenadas.filter((clase) => {
     if (filtroEstado === "todas") return true;
     return clase.estado_tiempo === filtroEstado;
   });
@@ -158,8 +140,8 @@ export default function Instructor() {
             </span>
             <h2>Mis clases asignadas</h2>
             <p>
-              Consulta el listado cronológico de tus clases, revisa sus
-              detalles y accede al control de participantes.
+              Consulta tus clases con priorización automática de sesiones activas,
+              accede directamente al pase de lista y revisa los socios inscritos.
             </p>
           </div>
         </div>
@@ -189,8 +171,9 @@ export default function Instructor() {
           <div className="clases-filtros-tabs">
             <button
               type="button"
-              className={`clases-filtro-btn ${filtroEstado === "todas" ? "activo" : ""
-                }`}
+              className={`clases-filtro-btn ${
+                filtroEstado === "todas" ? "activo" : ""
+              }`}
               onClick={() => setFiltroEstado("todas")}
             >
               Todas
@@ -199,8 +182,9 @@ export default function Instructor() {
 
             <button
               type="button"
-              className={`clases-filtro-btn ${filtroEstado === "en_curso" ? "activo" : ""
-                }`}
+              className={`clases-filtro-btn ${
+                filtroEstado === "en_curso" ? "activo" : ""
+              }`}
               onClick={() => setFiltroEstado("en_curso")}
             >
               <span className="pulso-en-curso" />
@@ -210,8 +194,9 @@ export default function Instructor() {
 
             <button
               type="button"
-              className={`clases-filtro-btn ${filtroEstado === "proxima" ? "activo" : ""
-                }`}
+              className={`clases-filtro-btn ${
+                filtroEstado === "proxima" ? "activo" : ""
+              }`}
               onClick={() => setFiltroEstado("proxima")}
             >
               Próximas
@@ -220,8 +205,9 @@ export default function Instructor() {
 
             <button
               type="button"
-              className={`clases-filtro-btn ${filtroEstado === "finalizada" ? "activo" : ""
-                }`}
+              className={`clases-filtro-btn ${
+                filtroEstado === "finalizada" ? "activo" : ""
+              }`}
               onClick={() => setFiltroEstado("finalizada")}
             >
               Finalizadas
@@ -285,7 +271,7 @@ export default function Instructor() {
           </div>
         )}
 
-        {/* MENSAJE CUANDO NO EXISTEN CLASES ASIGNADAS (CRITERIO 5) */}
+        {/* MENSAJE CUANDO NO EXISTEN CLASES ASIGNADAS */}
         {!cargando && !error && clases.length === 0 && (
           <div className="clases-vacio">
             <h3>No tienes clases asignadas</h3>
@@ -330,7 +316,7 @@ export default function Instructor() {
             </div>
           )}
 
-        {/* LISTADO CRONOLÓGICO DE CLASES ASIGNADAS */}
+        {/* LISTADO DE CLASES PRIORIZADAS */}
         {!cargando && !error && clasesFiltradas.length > 0 && (
           <div className="clases-instructor-grid">
             {clasesFiltradas.map((clase) => {
@@ -344,33 +330,42 @@ export default function Instructor() {
 
               const esEnCurso = clase.estado_tiempo === "en_curso";
               const esProxima = clase.estado_tiempo === "proxima";
-              const esFinalizada = clase.estado_tiempo === "finalizada";
 
               return (
                 <article
                   key={clase.sesion_id}
-                  className={`clase-instructor-card ${esEnCurso
-                    ? "card-en-curso"
-                    : esProxima
-                      ? "card-proxima"
-                      : "card-finalizada"
-                    }`}
+                  className={`clase-instructor-card ${
+                    esEnCurso
+                      ? "card-en-curso"
+                      : esProxima
+                        ? "card-proxima"
+                        : "card-finalizada"
+                  }`}
                   onClick={() => abrirDetallesClase(clase)}
                 >
+                  {/* BANNER DESTACADO PARA CLASES ACTIVAS (CRITERIO 3) */}
+                  {esEnCurso && (
+                    <div className="clase-banner-activa">
+                      <span>Clase activa ahora</span>
+                      <span className="pulso-en-curso" />
+                    </div>
+                  )}
+
                   {/* PARTE SUPERIOR DE LA TARJETA */}
                   <div className="clase-instructor-card-superior">
                     <span className="clase-instructor-icono">
                       <span>✦</span>
                     </span>
 
-                    {/* DISTINCIÓN VISUAL DEL ESTADO (CRITERIO 6) */}
+                    {/* DISTINCIÓN VISUAL DEL ESTADO */}
                     <span
-                      className={`badge-estado ${esEnCurso
-                        ? "en_curso"
-                        : esProxima
-                          ? "proxima"
-                          : "finalizada"
-                        }`}
+                      className={`badge-estado ${
+                        esEnCurso
+                          ? "en_curso"
+                          : esProxima
+                            ? "proxima"
+                            : "finalizada"
+                      }`}
                     >
                       {esEnCurso && <span className="pulso-en-curso" />}
                       {esEnCurso
@@ -384,7 +379,7 @@ export default function Instructor() {
                   {/* NOMBRE DE LA CLASE */}
                   <h3>{clase.actividad}</h3>
 
-                  {/* DETALLES DE FECHA, HORARIO Y LUGAR (CRITERIO 2) */}
+                  {/* DETALLES DE FECHA, HORARIO Y LUGAR */}
                   <div className="clase-instructor-detalles">
                     <div className="clase-detalle-item">
                       <span>Fecha</span>
@@ -426,7 +421,7 @@ export default function Instructor() {
                     </div>
                   </div>
 
-                  {/* ACCIONES DE LA TARJETA */}
+                  {/* ACCIONES DE LA TARJETA: ACCESO DIRECTO AL PASE DE LISTA EN CLASES EN CURSO (CRITERIO 7) */}
                   <div
                     className="clase-card-acciones"
                     onClick={(e) => e.stopPropagation()}
@@ -439,18 +434,33 @@ export default function Instructor() {
                       Ver detalles
                     </button>
 
-                    <button
-                      type="button"
-                      className="clase-btn-asistencia"
-                      title="Ver socios inscritos / pase de lista"
-                      onClick={() =>
-                        navigate(
-                          `/instructor/alumnos?claseId=${clase.sesion_id}`
-                        )
-                      }
-                    >
-                      Inscritos
-                    </button>
+                    {esEnCurso ? (
+                      <button
+                        type="button"
+                        className="clase-btn-asistencia btn-en-curso"
+                        title="Ir directamente al pase de lista de esta clase activa"
+                        onClick={() =>
+                          navigate(
+                            `/instructor/asistencia?claseId=${clase.sesion_id}`
+                          )
+                        }
+                      >
+                        Pase de lista
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="clase-btn-asistencia"
+                        title="Ver socios inscritos"
+                        onClick={() =>
+                          navigate(
+                            `/instructor/alumnos?claseId=${clase.sesion_id}`
+                          )
+                        }
+                      >
+                        Inscritos
+                      </button>
+                    )}
                   </div>
                 </article>
               );
@@ -458,7 +468,7 @@ export default function Instructor() {
           </div>
         )}
 
-        {/* MODAL / PANEL DE DETALLES DE LA CLASE (CRITERIO 4) */}
+        {/* MODAL / PANEL DE DETALLES DE LA CLASE */}
         {claseSeleccionada && (
           <div className="modal-overlay" onClick={cerrarDetalles}>
             <div
@@ -469,12 +479,13 @@ export default function Instructor() {
               <div className="modal-header">
                 <div>
                   <span
-                    className={`badge-estado ${claseSeleccionada.estado_tiempo === "en_curso"
-                      ? "en_curso"
-                      : claseSeleccionada.estado_tiempo === "proxima"
-                        ? "proxima"
-                        : "finalizada"
-                      }`}
+                    className={`badge-estado ${
+                      claseSeleccionada.estado_tiempo === "en_curso"
+                        ? "en_curso"
+                        : claseSeleccionada.estado_tiempo === "proxima"
+                          ? "proxima"
+                          : "finalizada"
+                    }`}
                   >
                     {claseSeleccionada.estado_tiempo === "en_curso" && (
                       <span className="pulso-en-curso" />
@@ -553,17 +564,18 @@ export default function Instructor() {
                       <div
                         className="clase-aforo-barra-progreso"
                         style={{
-                          width: `${claseSeleccionada.cupo > 0
-                            ? Math.min(
-                              100,
-                              Math.round(
-                                (claseSeleccionada.total_inscritos /
-                                  claseSeleccionada.cupo) *
-                                100
+                          width: `${
+                            claseSeleccionada.cupo > 0
+                              ? Math.min(
+                                100,
+                                Math.round(
+                                  (claseSeleccionada.total_inscritos /
+                                    claseSeleccionada.cupo) *
+                                    100
+                                )
                               )
-                            )
-                            : 0
-                            }%`,
+                              : 0
+                          }%`,
                         }}
                       />
                     </div>
@@ -599,8 +611,21 @@ export default function Instructor() {
                             key={alumno.socio_id}
                             className="modal-alumno-item"
                           >
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                              <span style={{ color: "#ff5a00", fontWeight: "700", fontSize: "12px", minWidth: "22px" }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "10px",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  color: "#ff5a00",
+                                  fontWeight: "700",
+                                  fontSize: "12px",
+                                  minWidth: "22px",
+                                }}
+                              >
                                 #{index + 1}
                               </span>
                               <strong>{nombreCompleto}</strong>
@@ -625,7 +650,7 @@ export default function Instructor() {
                 </div>
               </div>
 
-              {/* PIE DEL MODAL CON ACCIONES */}
+              {/* PIE DEL MODAL CON ACCIONES DIRECTAS */}
               <div className="modal-footer">
                 <button
                   type="button"
@@ -635,18 +660,33 @@ export default function Instructor() {
                   Cerrar
                 </button>
 
-                <button
-                  type="button"
-                  className="clase-btn-asistencia"
-                  onClick={() => {
-                    cerrarDetalles();
-                    navigate(
-                      `/instructor/alumnos?claseId=${claseSeleccionada.sesion_id}`
-                    );
-                  }}
-                >
-                  Ver en control de alumnos
-                </button>
+                {claseSeleccionada.estado_tiempo === "en_curso" ? (
+                  <button
+                    type="button"
+                    className="clase-btn-asistencia btn-en-curso"
+                    onClick={() => {
+                      cerrarDetalles();
+                      navigate(
+                        `/instructor/asistencia?claseId=${claseSeleccionada.sesion_id}`
+                      );
+                    }}
+                  >
+                    Ir al pase de lista
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="clase-btn-asistencia"
+                    onClick={() => {
+                      cerrarDetalles();
+                      navigate(
+                        `/instructor/alumnos?claseId=${claseSeleccionada.sesion_id}`
+                      );
+                    }}
+                  >
+                    Ver en control de alumnos
+                  </button>
+                )}
               </div>
             </div>
           </div>

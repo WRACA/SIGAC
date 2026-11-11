@@ -245,6 +245,33 @@
   box-shadow: 0 0 0 2px rgba(255, 90, 0, 0.4);
 }
 
+.clase-instructor-card.card-en-curso {
+  border-color: rgba(16, 185, 129, 0.7);
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.09) 0%, #141414 45%);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.15);
+}
+
+.clase-instructor-card.card-en-curso:hover {
+  border-color: #10b981 !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6), 0 0 0 1px #10b981, 0 0 24px rgba(16, 185, 129, 0.28);
+}
+
+.clase-banner-activa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -24px -24px 16px -24px;
+  padding: 8px 24px;
+  background: rgba(16, 185, 129, 0.16);
+  border-bottom: 1px solid rgba(16, 185, 129, 0.35);
+  color: #10b981;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
 .clase-instructor-card.card-finalizada {
   opacity: 0.88;
 }
@@ -412,6 +439,15 @@
 
 .clase-btn-asistencia:hover {
   background: #e64f00;
+}
+
+.clase-btn-asistencia.btn-en-curso {
+  background: #10b981;
+  color: #032014;
+}
+
+.clase-btn-asistencia.btn-en-curso:hover {
+  background: #059669;
 }
 
 /* Estado Vacío (Mensaje cuando no existen clases asignadas) */

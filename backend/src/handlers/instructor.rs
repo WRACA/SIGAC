@@ -141,7 +141,12 @@ pub async fn consultar_sesiones(
         WHERE c.usuario_id = $1
           AND a.eliminado_en IS NULL
 
-        ORDER BY s.inicio ASC
+        ORDER BY
+            CASE
+                WHEN s.inicio <= statement_timestamp() AND statement_timestamp() < s.fin AND s.estado != 'cancelada' THEN 0
+                ELSE 1
+            END ASC,
+            s.inicio ASC
         "#
     )
     .bind(datos.claims.id)
