@@ -14,6 +14,7 @@ import Socio from "./pages/Socio.jsx";
 import Instructor from "./pages/Instructor.jsx";
 import ClasesInstructor from "./pages/ClasesInstructor.jsx";
 import SociosInscritos from "./pages/SociosInscritos.jsx";
+import PaseLista from "./pages/PaseLista.jsx";
 import SeccionDashboardPorRol from "./components/SeccionDashboardPorRol.jsx";
 import InscripcionRecepcion from "./pages/InscripcionRecepcion.jsx";
 import AccesoDenegado from "./pages/AccesoDenegado.jsx";
@@ -45,6 +46,8 @@ export default function App() {
         <Route path="instructor" element={<Instructor />} />
         <Route path="instructor/clases" element={<ClasesInstructor />} />
         <Route path="instructor/alumnos" element={<SociosInscritos />} />
+        <Route path="instructor/pase-lista" element={<PaseLista />} />
+        <Route path="instructor/asistencia" element={<PaseLista />} />
         <Route path="instructor/:seccion" element={<SeccionDashboardPorRol rol="instructor" />} />
       </Route>
 
