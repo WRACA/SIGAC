@@ -1,41 +1,40 @@
+import { apiFetch } from "./api.js";
 
-// Datos de prueba para el pase de lista.
-// Posteriormente se obtendrán desde el backend.
+const API_URL = "/api/instructor";
 
-const asistenciasPorClase = {
-  1: [],
-  2: [],
-  3: [],
-  4: [],
-};
-
-// Consulta las asistencias registradas de una clase.
-export async function obtenerAsistencias(claseId) {
-  return asistenciasPorClase[claseId] || [];
+/**
+ * Sesiones vigentes (en curso y próximas) del instructor autenticado.
+ * GET /api/instructor/sesiones
+ */
+export function obtenerSesionesInstructor() {
+  return apiFetch(`${API_URL}/sesiones`, {
+    mensajeError: "No se pudieron obtener tus sesiones",
+  });
 }
 
-// Registra la asistencia de un socio.
-export async function registrarAsistencia(claseId, socioId) {
-  const asistencias = asistenciasPorClase[claseId];
+/**
+ * Socios inscritos en una sesión del instructor.
+ * GET /api/instructor/sesiones/{id}/inscritos
+ */
+export function obtenerInscritos(sesionId) {
+  return apiFetch(`${API_URL}/sesiones/${encodeURIComponent(sesionId)}/inscritos`, {
+    mensajeError: "No se pudieron obtener los inscritos",
+  });
+}
 
-  if (!asistencias) {
-    throw new Error("La clase seleccionada no existe.");
-  }
-
-  const yaRegistrada = asistencias.some(
-    (asistencia) => asistencia.socioId === socioId
-  );
-
-  if (yaRegistrada) {
-    throw new Error("La asistencia ya fue registrada.");
-  }
-
-  const nuevaAsistencia = {
-    socioId,
-    fecha: new Date().toISOString(),
-  };
-
-  asistencias.push(nuevaAsistencia);
-
-  return nuevaAsistencia;
+/**
+ * Registra la asistencia de un socio en una sesión.
+ * PATCH /api/instructor/asistencia
+ * @param {number} sesionId
+ * @param {number} socioId - ID interno del socio (socio.id)
+ */
+export function registrarAsistencia(sesionId, socioId) {
+  return apiFetch(`${API_URL}/asistencia`, {
+    method: "PATCH",
+    body: {
+      sesion_id: Number(sesionId),
+      socio_id: Number(socioId),
+    },
+    mensajeError: "No se pudo registrar la asistencia",
+  });
 }

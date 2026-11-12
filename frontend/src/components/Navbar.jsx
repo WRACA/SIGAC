@@ -1,5 +1,7 @@
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import Boton from "./Boton.jsx";
+import { obtenerSesionActiva } from "../services/api.js";
+import { rutaPerfil } from "../services/auth.js";
 
 const enlaces = [
   { to: "/", label: "Inicio", end: true },
@@ -10,6 +12,11 @@ const enlaces = [
 ];
 
 export default function Navbar() {
+  // useLocation fuerza a reevaluar la sesión en cada navegación
+  useLocation();
+  const sesion = obtenerSesionActiva();
+  const perfil = sesion ? rutaPerfil(sesion.rol) : null;
+
   return (
     <nav className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-6 px-[6%] py-[22px] max-[900px]:flex-wrap">
       <h1 className="font-display text-[1.9rem] font-extrabold uppercase tracking-[1px]">
@@ -32,7 +39,11 @@ export default function Navbar() {
         ))}
       </ul>
 
-      <Boton to="/login" variante="oscuro">Iniciar sesión</Boton>
+      {sesion && perfil ? (
+        <Boton to={perfil} variante="oscuro">Mi perfil</Boton>
+      ) : (
+        <Boton to="/login" variante="oscuro">Iniciar sesión</Boton>
+      )}
     </nav>
   );
 }

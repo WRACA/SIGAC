@@ -1,10 +1,14 @@
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{
+    extract::State,
+    http::{header, HeaderMap, StatusCode},
+    Json,
+};
 
 use crate::AppState;
 use crate::errors::{error_interno, ApiError};
 use crate::models::{LoginRequest, RegisterRequest, Usuario, UsuarioLogin};
 
-use jsonwebtoken::{encode, Header, EncodingKey};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -25,11 +29,55 @@ pub struct LoginResponse {
 }
 
 // ---------- POST /auth/register ----------
+// Solo un recepcionista o administrador activo puede dar de alta socios.
 pub async fn register(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(body): Json<RegisterRequest>,
 ) -> Result<(StatusCode, Json<Usuario>), ApiError> {
     let db = &state.api_pool;
+
+    // Obtener y validar el JWT
+    let token = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .ok_or((StatusCode::UNAUTHORIZED, "Token requerido".to_string()))?;
+
+    let secret = std::env::var("JWT_SECRET").map_err(|_| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "Error de configuración del servidor".to_string(),
+    ))?;
+
+    let datos = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::new(Algorithm::HS256),
+    )
+    .map_err(|_| (StatusCode::UNAUTHORIZED, "Token inválido o expirado".to_string()))?;
+
+    // Comprobar que sea un recepcionista o administrador activo
+    let autorizado = sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS (
+            SELECT 1 FROM usuario
+            WHERE id = $1
+              AND rol IN ('recepcionista', 'administrador')
+              AND activo = TRUE
+        )
+        "#,
+    )
+    .bind(datos.claims.id)
+    .fetch_one(db)
+    .await
+    .map_err(error_interno)?;
+
+    if !autorizado {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Solo recepción puede dar de alta socios".to_string(),
+        ));
+    }
 
     let correo = body.correo.trim().to_lowercase();
     let nombre = body.nombre.trim().to_string();

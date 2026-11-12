@@ -114,6 +114,17 @@ pub struct SesionInstructor {
     pub lugar: Option<String>,
     pub estado: String,
     pub zona_horaria: String,
+    pub en_curso: bool,
+}
+
+// Socio inscrito en una sesión del instructor
+#[derive(Serialize, sqlx::FromRow)]
+pub struct InscritoSesion {
+    pub socio_id: i32,
+    pub numero_socio: i32,
+    pub nombre: String,
+    pub estado: String,
+    pub fecha_asistencia: Option<String>,
 }
 
 #[derive(Deserialize)]

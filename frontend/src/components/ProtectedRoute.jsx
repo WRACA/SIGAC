@@ -1,18 +1,11 @@
 import { Navigate, Outlet } from 'react-router-dom';
+import { obtenerSesionActiva } from '../services/api.js';
 
 export const ProtectedRoute = ({ rolesPermitidos }) => {
-    const userStr = localStorage.getItem('user');
+    // Sin sesión o con token expirado: volver al login
+    const user = obtenerSesionActiva();
 
-    if (!userStr) {
-        return <Navigate to="/login" replace />;
-    }
-
-    const user = JSON.parse(userStr);
-
-    console.log("Rol del usuario en LocalStorage:", user.rol);
-    console.log("Roles permitidos para esta vista:", rolesPermitidos);
-
-    if (!user.rol) {
+    if (!user) {
         return <Navigate to="/login" replace />;
     }
 

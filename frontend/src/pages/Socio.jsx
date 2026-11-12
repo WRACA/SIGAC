@@ -1,45 +1,61 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout.jsx";
+import { menus } from "../components/menus.js";
+import { obtenerPerfil } from "../services/socio.js";
+import { formatearFecha } from "../utils/formato.js";
 
-const opciones = [
-  { nombre: "Inicio", ruta: "/socio" },
-  { nombre: "Mis actividades", ruta: "/socio/actividades" },
-  { nombre: "Mis inscripciones", ruta: "/socio/inscripciones" },
-  { nombre: "Horarios", ruta: "/socio/horarios" },
-  { nombre: "Mi perfil", ruta: "/socio/perfil" },
-];
-
-const estadisticas = [
-  { titulo: "Actividades inscritas", valor: "3" },
-  { titulo: "Clases esta semana", valor: "5" },
-  { titulo: "Próximas clases", valor: "2" },
-  { titulo: "Estado de membresía", valor: "Activa" },
-];
+const { nombre: rol, opciones } = menus.socio;
 
 export default function Socio() {
+  const [perfil, setPerfil] = useState(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let activo = true;
+    obtenerPerfil()
+      .then((datos) => activo && setPerfil(datos))
+      .catch((err) => activo && setError(err.message));
+    return () => {
+      activo = false;
+    };
+  }, []);
+
   return (
-    <DashboardLayout
-      titulo="Panel de Socio"
-      rol="Socio"
-      opciones={opciones}
-    >
-      <h2>¡Bienvenido a SIGAC!</h2>
+    <DashboardLayout titulo="Panel de Socio" rol={rol} opciones={opciones}>
+      <h2>¡Bienvenido{perfil ? `, ${perfil.nombre}` : ""} a SIGAC!</h2>
 
       <p>
-        Consulta tus actividades deportivas, revisa tus
-        horarios y administra tus inscripciones.
+        Consulta tus actividades deportivas, revisa los horarios
+        y tu información de socio.
       </p>
 
-      <div className="dashboard-tarjetas">
-        {estadisticas.map((estadistica) => (
-          <div
-            key={estadistica.titulo}
-            className="dashboard-tarjeta"
-          >
-            <h3>{estadistica.titulo}</h3>
-            <p>{estadistica.valor}</p>
+      {error && <p className="dashboard-error">{error}</p>}
+
+      {perfil && (
+        <div className="dashboard-tarjetas">
+          <div className="dashboard-tarjeta">
+            <h3>Número de socio</h3>
+            <p>{perfil.numero_socio}</p>
           </div>
-        ))}
-      </div>
+          <div className="dashboard-tarjeta">
+            <h3>Socio desde</h3>
+            <p className="dashboard-tarjeta-texto">{formatearFecha(perfil.fecha_alta)}</p>
+          </div>
+          <div className="dashboard-tarjeta">
+            <h3>Horarios del club</h3>
+            <Link to="/socio/horarios" className="dashboard-enlace-boton">
+              Ver horarios
+            </Link>
+          </div>
+          <div className="dashboard-tarjeta">
+            <h3>Mis datos</h3>
+            <Link to="/socio/perfil" className="dashboard-enlace-boton">
+              Ver mi perfil
+            </Link>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

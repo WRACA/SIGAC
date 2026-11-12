@@ -1,166 +1,133 @@
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout.jsx";
+import { menus } from "../components/menus.js";
+import { obtenerInscritos } from "../services/asistencias.js";
+import { useSesionesInstructor, etiquetaSesion } from "../hooks/useSesionesInstructor.js";
+import { ESTADO_INSCRIPCION } from "../utils/formato.js";
 import "../assets/SociosInscritos.css";
 
-const opciones = [
-  { nombre: "Inicio", ruta: "/instructor" },
-  { nombre: "Mis clases", ruta: "/instructor/clases" },
-  { nombre: "Mis horarios", ruta: "/instructor/horarios" },
-  { nombre: "Mis alumnos", ruta: "/instructor/alumnos" },
-  { nombre: "Mi perfil", ruta: "/instructor/perfil" },
-];
+const { nombre: rol, opciones } = menus.instructor;
 
-// Datos de ejemplo. Posteriormente se obtendrán del backend.
-const clases = [
-  { id: "1", nombre: "Entrenamiento funcional" },
-  { id: "2", nombre: "Acondicionamiento físico" },
-  { id: "3", nombre: "Circuito de fuerza" },
-  { id: "4", nombre: "Cardio grupal" },
-];
-
-const sociosPorClase = {
-  1: [
-    { id: "SOC-001", nombre: "Carlos Hernández" },
-    { id: "SOC-002", nombre: "María González" },
-    { id: "SOC-003", nombre: "José Ramírez" },
-  ],
-  2: [
-    { id: "SOC-004", nombre: "Ana Martínez" },
-    { id: "SOC-005", nombre: "Luis Torres" },
-  ],
-  3: [
-    { id: "SOC-006", nombre: "Sofía López" },
-    { id: "SOC-007", nombre: "Diego Pérez" },
-    { id: "SOC-008", nombre: "Valeria Cruz" },
-  ],
-  4: [],
-};
+const CLASE_ESTADO = { asistio: "ok", inscrito: "aviso", falta: "error" };
 
 export default function SociosInscritos() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { sesiones, cargando: cargandoSesiones, error: errorSesiones } = useSesionesInstructor();
 
-  const claseId = searchParams.get("claseId") || "1";
+  // Sesión elegida: la de la URL o, por defecto, la primera disponible
+  const sesionId = searchParams.get("sesionId") || (sesiones[0] ? String(sesiones[0].sesion_id) : "");
+  const sesionSeleccionada = sesiones.find((s) => String(s.sesion_id) === sesionId);
 
-  const claseSeleccionada = clases.find(
-    (clase) => clase.id === claseId
-  );
+  const [inscritos, setInscritos] = useState([]);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
 
-  const socios = claseSeleccionada
-    ? sociosPorClase[claseSeleccionada.id] || []
-    : [];
+  useEffect(() => {
+    if (!sesionId) return;
+    let activo = true;
 
-  const cambiarClase = (event) => {
-    setSearchParams({ claseId: event.target.value });
-  };
+    setCargando(true);
+    setError("");
+    obtenerInscritos(sesionId)
+      .then((datos) => activo && setInscritos(Array.isArray(datos) ? datos : []))
+      .catch((err) => {
+        if (!activo) return;
+        setInscritos([]);
+        setError(err.message);
+      })
+      .finally(() => activo && setCargando(false));
+
+    return () => {
+      activo = false;
+    };
+  }, [sesionId]);
 
   return (
-    <DashboardLayout
-      titulo="Socios inscritos"
-      rol="Instructor"
-      opciones={opciones}
-    >
+    <DashboardLayout titulo="Socios inscritos" rol={rol} opciones={opciones}>
       <section className="socios-inscritos">
         <div className="socios-inscritos-encabezado">
           <div>
-            <span className="socios-inscritos-etiqueta">
-              PANEL DE INSTRUCTOR
-            </span>
-
+            <span className="socios-inscritos-etiqueta">PANEL DE INSTRUCTOR</span>
             <h2>Socios inscritos por clase</h2>
-
-            <p>
-              Consulta los participantes registrados en cada una
-              de tus clases.
-            </p>
+            <p>Consulta los participantes registrados en cada una de tus sesiones.</p>
           </div>
         </div>
 
         <div className="socios-inscritos-panel">
-          <h3>Seleccionar clase</h3>
+          <h3>Seleccionar sesión</h3>
+          <label htmlFor="clase-inscritos">Sesión</label>
 
-          <label htmlFor="clase-inscritos">
-            Clase asignada
-          </label>
-
-          <select
-            id="clase-inscritos"
-            value={claseSeleccionada ? claseId : ""}
-            onChange={cambiarClase}
-          >
-            {!claseSeleccionada && (
-              <option value="">Selecciona una clase</option>
-            )}
-
-            {clases.map((clase) => (
-              <option key={clase.id} value={clase.id}>
-                {clase.nombre}
-              </option>
-            ))}
-          </select>
+          {cargandoSesiones ? (
+            <p className="dashboard-cargando">Cargando sesiones...</p>
+          ) : errorSesiones ? (
+            <p className="dashboard-error">{errorSesiones}</p>
+          ) : sesiones.length === 0 ? (
+            <p className="dashboard-cargando">No tienes sesiones vigentes.</p>
+          ) : (
+            <select
+              id="clase-inscritos"
+              value={sesionSeleccionada ? sesionId : ""}
+              onChange={(e) => setSearchParams({ sesionId: e.target.value })}
+            >
+              {!sesionSeleccionada && <option value="">Selecciona una sesión</option>}
+              {sesiones.map((s) => (
+                <option key={s.sesion_id} value={s.sesion_id}>
+                  {etiquetaSesion(s)}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
-        <div className="socios-inscritos-panel">
-          <div className="socios-inscritos-lista-encabezado">
-            <div>
-              <h3>Lista de participantes</h3>
+        {sesionId && (
+          <div className="socios-inscritos-panel">
+            <h3>
+              Lista de participantes{" "}
+              {!cargando && !error && (
+                <span className="dashboard-badge">
+                  {inscritos.length} {inscritos.length === 1 ? "socio" : "socios"}
+                </span>
+              )}
+            </h3>
 
-              <p>
-                {claseSeleccionada
-                  ? claseSeleccionada.nombre
-                  : "No hay una clase seleccionada"}
-              </p>
-            </div>
-
-            <span className="socios-inscritos-total">
-              {socios.length} {socios.length === 1 ? "socio" : "socios"}
-            </span>
-          </div>
-
-          {claseSeleccionada ? (
-            socios.length > 0 ? (
+            {cargando ? (
+              <p className="dashboard-cargando">Cargando inscritos...</p>
+            ) : error ? (
+              <p className="dashboard-error">{error}</p>
+            ) : inscritos.length === 0 ? (
+              <div className="socios-inscritos-vacio">
+                <h3>No hay socios inscritos</h3>
+                <p>Actualmente no hay participantes registrados en esta sesión.</p>
+              </div>
+            ) : (
               <div className="socios-inscritos-tabla-contenedor">
                 <table className="socios-inscritos-tabla">
                   <thead>
                     <tr>
-                      <th>Identificador</th>
+                      <th>No. socio</th>
                       <th>Nombre del socio</th>
+                      <th>Estado</th>
                     </tr>
                   </thead>
-
                   <tbody>
-                    {socios.map((socio) => (
-                      <tr key={socio.id}>
-                        <td>{socio.id}</td>
+                    {inscritos.map((socio) => (
+                      <tr key={socio.socio_id}>
+                        <td>{socio.numero_socio}</td>
                         <td>{socio.nombre}</td>
+                        <td>
+                          <span className={`dashboard-badge ${CLASE_ESTADO[socio.estado] || ""}`}>
+                            {ESTADO_INSCRIPCION[socio.estado] || socio.estado}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            ) : (
-              <div className="socios-inscritos-vacio">
-                <h3>No hay socios inscritos</h3>
-                <p>
-                  Actualmente no hay participantes registrados
-                  en esta clase.
-                </p>
-              </div>
-            )
-          ) : (
-            <div className="socios-inscritos-vacio">
-              <h3>Clase no encontrada</h3>
-              <p>
-                Selecciona una clase válida para consultar
-                sus participantes.
-              </p>
-            </div>
-          )}
-        </div>
-
-        <p className="socios-inscritos-nota">
-          La consulta de participantes está disponible antes,
-          durante y después del horario de cada clase.
-        </p>
+            )}
+          </div>
+        )}
       </section>
     </DashboardLayout>
   );

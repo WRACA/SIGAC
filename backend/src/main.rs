@@ -13,6 +13,7 @@ use handlers::recepcion::registrar_inscripcion;
 use handlers::perfil::obtener_perfil;
 use handlers::instructor::consultar_sesiones;
 use handlers::instructor::registrar_asistencia;
+use handlers::instructor::consultar_inscritos;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -67,6 +68,7 @@ async fn main() {
     .route("/api/recepcion/inscripciones", post(registrar_inscripcion))
     .route("/api/socio/perfil", get(obtener_perfil))
     .route("/api/instructor/sesiones", get(consultar_sesiones))
+    .route("/api/instructor/sesiones/{id}/inscritos", get(consultar_inscritos))
     .route("/api/instructor/asistencia", patch(registrar_asistencia))
     .with_state(state);
 

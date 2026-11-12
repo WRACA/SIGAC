@@ -1,45 +1,81 @@
+import { Link } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout.jsx";
+import { menus } from "../components/menus.js";
+import { useSesionesInstructor } from "../hooks/useSesionesInstructor.js";
+import { formatearFecha, formatearHora } from "../utils/formato.js";
 
-const opciones = [
-  { nombre: "Inicio", ruta: "/instructor" },
-  { nombre: "Mis clases", ruta: "/instructor/clases" },
-  { nombre: "Mis horarios", ruta: "/instructor/horarios" },
-  { nombre: "Mis alumnos", ruta: "/instructor/alumnos" },
-  { nombre: "Mi perfil", ruta: "/instructor/perfil" },
-];
+const { nombre: rol, opciones } = menus.instructor;
 
-const estadisticas = [
-  { titulo: "Clases asignadas", valor: "4" },
-  { titulo: "Clases esta semana", valor: "8" },
-  { titulo: "Alumnos inscritos", valor: "35" },
-  { titulo: "Próxima clase", valor: "10:00 AM" },
-];
+// Sesiones dentro de los próximos 7 días
+function sesionesDeLaSemana(sesiones) {
+  const limite = new Date();
+  limite.setDate(limite.getDate() + 7);
+  return sesiones.filter((s) => {
+    const [anio, mes, dia] = s.fecha.split("-").map(Number);
+    return new Date(anio, mes - 1, dia) <= limite;
+  }).length;
+}
 
 export default function Instructor() {
+  const { sesiones, cargando, error } = useSesionesInstructor();
+
+  const enCurso = sesiones.find((s) => s.en_curso);
+  const proxima = sesiones.find((s) => !s.en_curso);
+
   return (
-    <DashboardLayout
-      titulo="Panel de Instructor"
-      rol="Instructor"
-      opciones={opciones}
-    >
+    <DashboardLayout titulo="Panel de Instructor" rol={rol} opciones={opciones}>
       <h2>¡Bienvenido, instructor!</h2>
 
       <p>
-        Consulta tus clases asignadas, revisa tus horarios
-        y conoce a los alumnos inscritos en tus actividades.
+        Consulta tus clases asignadas, revisa a los alumnos inscritos
+        y pasa lista durante tus sesiones.
       </p>
 
-      <div className="dashboard-tarjetas">
-        {estadisticas.map((estadistica) => (
-          <div
-            key={estadistica.titulo}
-            className="dashboard-tarjeta"
-          >
-            <h3>{estadistica.titulo}</h3>
-            <p>{estadistica.valor}</p>
+      {cargando && <p className="dashboard-cargando">Cargando información...</p>}
+      {error && <p className="dashboard-error">{error}</p>}
+
+      {!cargando && !error && (
+        <div className="dashboard-tarjetas">
+          <div className="dashboard-tarjeta">
+            <h3>Sesiones vigentes</h3>
+            <p>{sesiones.length}</p>
           </div>
-        ))}
-      </div>
+
+          <div className="dashboard-tarjeta">
+            <h3>Próximos 7 días</h3>
+            <p>{sesionesDeLaSemana(sesiones)}</p>
+          </div>
+
+          <div className="dashboard-tarjeta">
+            <h3>Próxima clase</h3>
+            <p className="dashboard-tarjeta-texto">
+              {proxima
+                ? `${proxima.actividad} · ${formatearFecha(proxima.fecha)} ${formatearHora(
+                    proxima.hora_inicio
+                  )}`
+                : "Sin clases próximas"}
+            </p>
+          </div>
+
+          <div className="dashboard-tarjeta">
+            <h3>Clase en curso</h3>
+            {enCurso ? (
+              <>
+                <p className="dashboard-tarjeta-texto">{enCurso.actividad}</p>
+                <Link
+                  to={`/instructor/asistencia?sesionId=${enCurso.sesion_id}`}
+                  className="dashboard-enlace-boton"
+                  style={{ marginTop: 12 }}
+                >
+                  Pasar lista
+                </Link>
+              </>
+            ) : (
+              <p className="dashboard-tarjeta-texto">Ninguna</p>
+            )}
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

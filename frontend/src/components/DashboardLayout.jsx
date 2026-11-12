@@ -1,7 +1,15 @@
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { cerrarSesion } from "../services/auth.js";
 import "../assets/Dashboard.css";
 
 export default function DashboardLayout({ titulo, rol, opciones, children }) {
+  const navigate = useNavigate();
+
+  const salir = () => {
+    cerrarSesion();
+    navigate("/login", { replace: true });
+  };
+
   return (
     <div className="dashboard">
 
@@ -36,6 +44,10 @@ export default function DashboardLayout({ titulo, rol, opciones, children }) {
             </NavLink>
           ))}
         </nav>
+
+        <button type="button" className="dashboard-salir" onClick={salir}>
+          Cerrar sesión
+        </button>
 
       </aside>
 

@@ -4,3 +4,7 @@
 node_modules/
 target/
 .env
+
+requerimientos.md
+
+docs/QR/

@@ -1,115 +1,93 @@
-
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout.jsx";
+import { menus } from "../components/menus.js";
+import { useSesionesInstructor } from "../hooks/useSesionesInstructor.js";
+import { formatearFecha, formatearHora } from "../utils/formato.js";
 import "../assets/ClasesInstructor.css";
 
-const opciones = [
-  { nombre: "Inicio", ruta: "/instructor" },
-  { nombre: "Mis clases", ruta: "/instructor/clases" },
-  { nombre: "Mis horarios", ruta: "/instructor/horarios" },
-  { nombre: "Mis alumnos", ruta: "/instructor/alumnos" },
-  { nombre: "Mi perfil", ruta: "/instructor/perfil" },
-];
-
-// Datos de ejemplo. Posteriormente se obtendrán del backend.
-const clasesEjemplo = [
-  {
-    id: 1,
-    nombre: "Entrenamiento funcional",
-    horario: "08:00 AM - 09:00 AM",
-    dias: "Lunes y miércoles",
-    estado: "Asignada",
-  },
-  {
-    id: 2,
-    nombre: "Acondicionamiento físico",
-    horario: "10:00 AM - 11:00 AM",
-    dias: "Martes y jueves",
-    estado: "Asignada",
-  },
-  {
-    id: 3,
-    nombre: "Circuito de fuerza",
-    horario: "05:00 PM - 06:00 PM",
-    dias: "Lunes, miércoles y viernes",
-    estado: "Asignada",
-  },
-  {
-    id: 4,
-    nombre: "Cardio grupal",
-    horario: "06:00 PM - 07:00 PM",
-    dias: "Martes y jueves",
-    estado: "Asignada",
-  },
-];
+const { nombre: rol, opciones } = menus.instructor;
 
 export default function ClasesInstructor() {
   const navigate = useNavigate();
+  const { sesiones, cargando, error } = useSesionesInstructor();
 
   return (
-    <DashboardLayout
-      titulo="Mis clases"
-      rol="Instructor"
-      opciones={opciones}
-    >
+    <DashboardLayout titulo="Mis clases" rol={rol} opciones={opciones}>
       <section className="clases-instructor">
         <div className="clases-instructor-encabezado">
           <div>
-            <span className="clases-instructor-etiqueta">
-              PANEL DE INSTRUCTOR
-            </span>
-
+            <span className="clases-instructor-etiqueta">PANEL DE INSTRUCTOR</span>
             <h2>Mis clases asignadas</h2>
-
             <p>
-              Consulta tus clases y revisa los socios inscritos
-              en cada una de tus actividades.
+              Consulta tus sesiones en curso y próximas, revisa los socios
+              inscritos y pasa lista durante la clase.
             </p>
           </div>
 
           <div className="clases-instructor-total">
-            <span>Total de clases</span>
-            <strong>{clasesEjemplo.length}</strong>
+            <span>Sesiones vigentes</span>
+            <strong>{cargando ? "…" : sesiones.length}</strong>
           </div>
         </div>
 
+        {cargando && <p className="dashboard-cargando">Cargando sesiones...</p>}
+        {error && <p className="dashboard-error">{error}</p>}
+        {!cargando && !error && sesiones.length === 0 && (
+          <p className="dashboard-cargando">No tienes sesiones programadas.</p>
+        )}
+
         <div className="clases-instructor-grid">
-          {clasesEjemplo.map((clase) => (
-            <article className="clase-instructor-card" key={clase.id}>
+          {sesiones.map((sesion) => (
+            <article className="clase-instructor-card" key={sesion.sesion_id}>
               <div className="clase-instructor-card-superior">
                 <span className="clase-instructor-icono">
                   <span>✦</span>
                 </span>
 
-                <span className="clase-instructor-estado">
-                  {clase.estado}
+                <span
+                  className={`dashboard-badge ${sesion.en_curso ? "ok" : ""}`}
+                >
+                  {sesion.en_curso ? "En curso" : "Programada"}
                 </span>
               </div>
 
-              <h3>{clase.nombre}</h3>
+              <h3>{sesion.actividad}</h3>
 
               <div className="clase-instructor-detalles">
                 <p>
-                  <span>Horario</span>
-                  {clase.horario}
+                  <span>Fecha</span>
+                  {formatearFecha(sesion.fecha)}
                 </p>
-
                 <p>
-                  <span>Días</span>
-                  {clase.dias}
+                  <span>Horario</span>
+                  {formatearHora(sesion.hora_inicio)} – {formatearHora(sesion.hora_fin)}
+                </p>
+                <p>
+                  <span>Lugar</span>
+                  {sesion.lugar || "—"}
                 </p>
               </div>
 
               <button
                 type="button"
                 className="clase-instructor-boton"
-                onClick={() =>
-                  navigate(`/instructor/alumnos?claseId=${clase.id}`)
-                }
+                onClick={() => navigate(`/instructor/alumnos?sesionId=${sesion.sesion_id}`)}
               >
                 Ver inscritos
                 <span>→</span>
               </button>
+
+              {sesion.en_curso && (
+                <button
+                  type="button"
+                  className="clase-instructor-boton"
+                  style={{ marginTop: 10 }}
+                  onClick={() => navigate(`/instructor/asistencia?sesionId=${sesion.sesion_id}`)}
+                >
+                  Pasar lista
+                  <span>→</span>
+                </button>
+              )}
             </article>
           ))}
         </div>

@@ -1,257 +1,158 @@
-
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout.jsx";
-import {
-  obtenerAsistencias,
-  registrarAsistencia,
-} from "../services/asistencias.js";
+import { menus } from "../components/menus.js";
+import { obtenerInscritos, registrarAsistencia } from "../services/asistencias.js";
+import { useSesionesInstructor, etiquetaSesion } from "../hooks/useSesionesInstructor.js";
+import { formatearFecha, formatearHora } from "../utils/formato.js";
 import "../assets/PaseLista.css";
 
-const opciones = [
-  { nombre: "Inicio", ruta: "/instructor" },
-  { nombre: "Mis clases", ruta: "/instructor/clases" },
-  { nombre: "Mis horarios", ruta: "/instructor/horarios" },
-  { nombre: "Mis alumnos", ruta: "/instructor/alumnos" },
-  { nombre: "Mi perfil", ruta: "/instructor/perfil" },
-];
-
-// Datos de prueba. Posteriormente se obtendrán del backend.
-const clases = [
-  {
-    id: "1",
-    nombre: "Entrenamiento funcional",
-    inicio: "08:00",
-    fin: "09:00",
-    dias: [1, 3],
-  },
-  {
-    id: "2",
-    nombre: "Acondicionamiento físico",
-    inicio: "10:00",
-    fin: "11:00",
-    dias: [2, 4],
-  },
-  {
-    id: "3",
-    nombre: "Circuito de fuerza",
-    inicio: "17:00",
-    fin: "18:00",
-    dias: [1, 3, 5],
-  },
-  {
-    id: "4",
-    nombre: "Cardio grupal",
-    inicio: "18:00",
-    fin: "19:00",
-    dias: [2, 4],
-  },
-];
-
-const sociosPorClase = {
-  1: [
-    { id: "SOC-001", nombre: "Carlos Hernández" },
-    { id: "SOC-002", nombre: "María González" },
-    { id: "SOC-003", nombre: "José Ramírez" },
-  ],
-  2: [
-    { id: "SOC-004", nombre: "Ana Martínez" },
-    { id: "SOC-005", nombre: "Luis Torres" },
-  ],
-  3: [
-    { id: "SOC-006", nombre: "Sofía López" },
-    { id: "SOC-007", nombre: "Diego Pérez" },
-    { id: "SOC-008", nombre: "Valeria Cruz" },
-  ],
-  4: [],
-};
-
-const obtenerEstadoClase = (clase, fecha) => {
-  const dia = fecha.getDay();
-  const hora = fecha.getHours() * 60 + fecha.getMinutes();
-
-  const [horaInicio, minutoInicio] = clase.inicio.split(":").map(Number);
-  const [horaFin, minutoFin] = clase.fin.split(":").map(Number);
-
-  const inicio = horaInicio * 60 + minutoInicio;
-  const fin = horaFin * 60 + minutoFin;
-
-  if (!clase.dias.includes(dia)) return "fuera";
-  if (hora < inicio) return "antes";
-  if (hora >= fin) return "despues";
-
-  return "durante";
-};
+const { nombre: rol, opciones } = menus.instructor;
 
 export default function PaseLista() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const claseId = searchParams.get("claseId") || "1";
+  const { sesiones, cargando: cargandoSesiones, error: errorSesiones } = useSesionesInstructor();
 
-  const [fechaActual, setFechaActual] = useState(new Date());
-  const [asistencias, setAsistencias] = useState([]);
+  // Sesión elegida: la de la URL o, por defecto, la que está en curso
+  const sesionPorDefecto = sesiones.find((s) => s.en_curso) || sesiones[0];
+  const sesionId =
+    searchParams.get("sesionId") || (sesionPorDefecto ? String(sesionPorDefecto.sesion_id) : "");
+  const sesion = sesiones.find((s) => String(s.sesion_id) === sesionId);
+
+  const [inscritos, setInscritos] = useState([]);
+  const [cargando, setCargando] = useState(false);
+  const [filtro, setFiltro] = useState("");
+  const [registrando, setRegistrando] = useState(null);
   const [mensaje, setMensaje] = useState("");
   const [error, setError] = useState("");
 
-  const claseSeleccionada = clases.find(
-    (clase) => clase.id === claseId
-  );
-
-  const socios = sociosPorClase[claseId] || [];
-
-  const estado = claseSeleccionada
-    ? obtenerEstadoClase(claseSeleccionada, fechaActual)
-    : "fuera";
-
-  const puedeRegistrar = estado === "durante";
-
-  useEffect(() => {
-    const intervalo = setInterval(() => {
-      setFechaActual(new Date());
-    }, 30000);
-
-    return () => clearInterval(intervalo);
+  const cargarInscritos = useCallback(async (id) => {
+    const datos = await obtenerInscritos(id);
+    return Array.isArray(datos) ? datos : [];
   }, []);
 
   useEffect(() => {
+    if (!sesionId) return;
     let activo = true;
 
-    async function cargarAsistencias() {
-      try {
-        const datos = await obtenerAsistencias(claseId);
-        if (activo) {
-          setAsistencias(datos);
-        }
-      } catch (err) {
-        if (activo) setError(err.message);
-      }
-    }
-
-    cargarAsistencias();
+    setCargando(true);
+    setError("");
+    cargarInscritos(sesionId)
+      .then((datos) => activo && setInscritos(datos))
+      .catch((err) => {
+        if (!activo) return;
+        setInscritos([]);
+        setError(err.message);
+      })
+      .finally(() => activo && setCargando(false));
 
     return () => {
       activo = false;
     };
-  }, [claseId]);
+  }, [sesionId, cargarInscritos]);
 
-  const cambiarClase = (event) => {
-    setSearchParams({ claseId: event.target.value });
+  const cambiarSesion = (e) => {
+    setSearchParams({ sesionId: e.target.value });
     setMensaje("");
     setError("");
+    setFiltro("");
   };
 
-  const marcarAsistencia = async (socioId) => {
+  // Registro manual de asistencia (RF-16). La validación de horario,
+  // inscripción y duplicados la hace el servidor.
+  const marcarAsistencia = async (socio) => {
     setMensaje("");
     setError("");
-
-    if (!puedeRegistrar) {
-      setError("El registro solo está disponible durante la clase.");
-      return;
-    }
+    setRegistrando(socio.socio_id);
 
     try {
-      const nuevaAsistencia = await registrarAsistencia(
-        claseId,
-        socioId
-      );
-
-      setAsistencias((actuales) => [
-        ...actuales,
-        nuevaAsistencia,
-      ]);
-
-      setMensaje("Asistencia registrada correctamente.");
+      const respuesta = await registrarAsistencia(sesionId, socio.socio_id);
+      setMensaje(`${socio.nombre}: ${respuesta.mensaje}`);
+      setInscritos(await cargarInscritos(sesionId));
     } catch (err) {
-      setError(err.message);
+      setError(`${socio.nombre}: ${err.message}`);
+    } finally {
+      setRegistrando(null);
     }
   };
 
-  const yaTieneAsistencia = (socioId) =>
-    asistencias.some(
-      (asistencia) => asistencia.socioId === socioId
+  const filtrados = useMemo(() => {
+    const q = filtro.trim().toLowerCase();
+    if (!q) return inscritos;
+    return inscritos.filter(
+      (s) => s.nombre.toLowerCase().includes(q) || String(s.numero_socio).includes(q)
     );
+  }, [inscritos, filtro]);
 
-  const estadoTexto = {
-    antes: "La clase aún no comienza",
-    durante: "Clase en curso",
-    despues: "La clase ha finalizado",
-    fuera: "Fuera del horario de clase",
-  };
+  const asistieron = inscritos.filter((s) => s.estado === "asistio").length;
+  const puedeRegistrar = Boolean(sesion?.en_curso);
 
   return (
-    <DashboardLayout
-      titulo="Pase de lista"
-      rol="Instructor"
-      opciones={opciones}
-    >
+    <DashboardLayout titulo="Pase de lista" rol={rol} opciones={opciones}>
       <section className="pase-lista">
         <div className="pase-lista-encabezado">
           <div>
-            <span className="pase-lista-etiqueta">
-              PANEL DE INSTRUCTOR
-            </span>
+            <span className="pase-lista-etiqueta">PANEL DE INSTRUCTOR</span>
             <h2>Registro de asistencia</h2>
-            <p>
-              Marca la asistencia de los socios inscritos
-              en tus clases.
-            </p>
+            <p>Marca la asistencia de los socios inscritos en tu clase en curso.</p>
           </div>
         </div>
 
         <div className="pase-lista-panel">
-          <label htmlFor="seleccionar-clase">
-            Seleccionar clase
-          </label>
+          <label htmlFor="seleccionar-clase">Seleccionar sesión</label>
 
-          <select
-            id="seleccionar-clase"
-            value={claseSeleccionada ? claseId : ""}
-            onChange={cambiarClase}
-          >
-            {!claseSeleccionada && (
-              <option value="">Selecciona una clase</option>
-            )}
-
-            {clases.map((clase) => (
-              <option key={clase.id} value={clase.id}>
-                {clase.nombre}
-              </option>
-            ))}
-          </select>
+          {cargandoSesiones ? (
+            <p className="dashboard-cargando">Cargando sesiones...</p>
+          ) : errorSesiones ? (
+            <p className="pase-lista-error">{errorSesiones}</p>
+          ) : sesiones.length === 0 ? (
+            <p className="dashboard-cargando">No tienes sesiones vigentes.</p>
+          ) : (
+            <select
+              id="seleccionar-clase"
+              value={sesion ? sesionId : ""}
+              onChange={cambiarSesion}
+            >
+              {!sesion && <option value="">Selecciona una sesión</option>}
+              {sesiones.map((s) => (
+                <option key={s.sesion_id} value={s.sesion_id}>
+                  {etiquetaSesion(s)}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
-        {claseSeleccionada && (
+        {sesion && (
           <>
             <div className="pase-lista-panel">
               <div className="pase-lista-info">
                 <div>
-                  <h3>{claseSeleccionada.nombre}</h3>
+                  <h3>{sesion.actividad}</h3>
                   <p>
-                    Horario: {claseSeleccionada.inicio} -
-                    {" "}{claseSeleccionada.fin}
+                    {formatearFecha(sesion.fecha)} · {formatearHora(sesion.hora_inicio)} –{" "}
+                    {formatearHora(sesion.hora_fin)}
+                    {sesion.lugar ? ` · ${sesion.lugar}` : ""}
                   </p>
                 </div>
 
-                <span className={`pase-lista-estado ${estado}`}>
-                  {estadoTexto[estado]}
+                <span className={`pase-lista-estado ${puedeRegistrar ? "durante" : "antes"}`}>
+                  {puedeRegistrar ? "Clase en curso" : "La clase aún no comienza"}
                 </span>
               </div>
 
               <div className="pase-lista-resumen">
                 <div>
                   <span>Socios inscritos</span>
-                  <strong>{socios.length}</strong>
+                  <strong>{inscritos.length}</strong>
                 </div>
-
                 <div>
                   <span>Asistencias registradas</span>
-                  <strong>{asistencias.length}</strong>
+                  <strong>{asistieron}</strong>
                 </div>
-
                 <div>
                   <span>Pendientes</span>
-                  <strong>
-                    {socios.length - asistencias.length}
-                  </strong>
+                  <strong>{inscritos.filter((s) => s.estado === "inscrito").length}</strong>
                 </div>
               </div>
             </div>
@@ -259,41 +160,62 @@ export default function PaseLista() {
             <div className="pase-lista-panel">
               <h3>Lista de participantes</h3>
 
-              {socios.length > 0 ? (
+              <input
+                type="search"
+                className="dashboard-input"
+                placeholder="Buscar por nombre o número de socio"
+                value={filtro}
+                onChange={(e) => setFiltro(e.target.value)}
+                style={{ marginBottom: 16 }}
+                aria-label="Buscar socio en la lista"
+              />
+
+              {mensaje && <p className="pase-lista-mensaje">{mensaje}</p>}
+              {error && <p className="pase-lista-error">{error}</p>}
+
+              {cargando ? (
+                <p className="dashboard-cargando">Cargando inscritos...</p>
+              ) : filtrados.length > 0 ? (
                 <div className="pase-lista-tabla-contenedor">
                   <table className="pase-lista-tabla">
                     <thead>
                       <tr>
-                        <th>Identificador</th>
+                        <th>No. socio</th>
                         <th>Nombre del socio</th>
                         <th>Asistencia</th>
                         <th>Acción</th>
                       </tr>
                     </thead>
-
                     <tbody>
-                      {socios.map((socio) => {
-                        const registrada = yaTieneAsistencia(socio.id);
+                      {filtrados.map((socio) => {
+                        const registrada = socio.estado === "asistio";
+                        const procesada = socio.estado !== "inscrito";
 
                         return (
-                          <tr key={socio.id}>
-                            <td>{socio.id}</td>
+                          <tr key={socio.socio_id}>
+                            <td>{socio.numero_socio}</td>
                             <td>{socio.nombre}</td>
                             <td>
-                              <span className={
-                                registrada ? "asistencia-ok" : "asistencia-pendiente"
-                              }>
-                                {registrada ? "Registrada" : "Pendiente"}
+                              <span
+                                className={registrada ? "asistencia-ok" : "asistencia-pendiente"}
+                              >
+                                {registrada
+                                  ? `Registrada ${socio.fecha_asistencia?.slice(11, 16) || ""}`
+                                  : procesada
+                                  ? "Falta"
+                                  : "Pendiente"}
                               </span>
                             </td>
                             <td>
                               <button
                                 type="button"
-                                disabled={!puedeRegistrar || registrada}
-                                onClick={() => marcarAsistencia(socio.id)}
+                                disabled={!puedeRegistrar || procesada || registrando !== null}
+                                onClick={() => marcarAsistencia(socio)}
                                 className="pase-lista-boton"
                               >
-                                {registrada
+                                {registrando === socio.socio_id
+                                  ? "Registrando..."
+                                  : registrada
                                   ? "Registrada"
                                   : "Marcar asistencia"}
                               </button>
@@ -306,19 +228,13 @@ export default function PaseLista() {
                 </div>
               ) : (
                 <div className="pase-lista-vacio">
-                  <h3>No hay socios inscritos</h3>
+                  <h3>{inscritos.length ? "Sin coincidencias" : "No hay socios inscritos"}</h3>
                   <p>
-                    No existen participantes para esta clase.
+                    {inscritos.length
+                      ? "Ningún socio coincide con la búsqueda."
+                      : "No existen participantes para esta sesión."}
                   </p>
                 </div>
-              )}
-
-              {mensaje && (
-                <p className="pase-lista-mensaje">{mensaje}</p>
-              )}
-
-              {error && (
-                <p className="pase-lista-error">{error}</p>
               )}
             </div>
           </>

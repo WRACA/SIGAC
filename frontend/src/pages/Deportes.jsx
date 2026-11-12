@@ -1,6 +1,7 @@
 import "../assets/Deportes.css";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "react-router-dom";
+import HorariosPublicos from "../components/HorariosPublicos.jsx";
 
 const deportes = [
   {
@@ -458,6 +459,9 @@ export default function Deportes() {
         </div>
 
       </div>
+
+      {/* HORARIOS DESDE EL BACKEND */}
+      <HorariosPublicos />
 
       {/* BOTÓN FLOTANTE "VOLVER ARRIBA" */}
       <button
