@@ -2,6 +2,7 @@ mod errors;
 mod handlers;
 mod models;
 mod qr;
+mod seed;
 
 use axum::{routing::{get,post,patch}, Router};
 use sqlx::{postgres::PgPoolOptions, PgPool};
@@ -60,6 +61,19 @@ async fn main() {
         api_pool,
         public_pool,
     };
+
+    // ---------- Semilla de datos de prueba ----------
+    // Escucha el teclado: al escribir la palabra clave (ver seed::PALABRA_CLAVE)
+    // se cargan los datos de prueba. Solo se aplica una vez por base de datos.
+    // Si existe DB_URL_SEED se usa ese usuario de BD; si no, el de la API.
+    let seed_pool = match std::env::var("DB_URL_SEED") {
+        Ok(url) => PgPoolOptions::new()
+            .max_connections(1)
+            .connect_lazy(&url)
+            .expect("DB_URL_SEED no es una cadena de conexión válida"),
+        Err(_) => state.api_pool.clone(),
+    };
+    tokio::spawn(seed::escuchar_teclado(seed_pool));
 
    let app = Router::new()
     .route("/api/auth/register", post(register))
