@@ -1,300 +1,161 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout.jsx";
-import {
-  obtenerClasesInstructor,
-  obtenerInscritosClase,
-} from "../services/instructor.js";
-import { registrarAsistencia } from "../services/asistencias.js";
-import {
-  formatearFecha,
-  formatearHora,
-  obtenerEstadoTiempoClase,
-  ordenarClasesPriorizadas,
-} from "../utils/clasesUtils.js";
+import { menus } from "../components/menus.js";
+import { obtenerInscritos, registrarAsistencia } from "../services/asistencias.js";
+import { useSesionesInstructor, etiquetaSesion } from "../hooks/useSesionesInstructor.js";
+import { formatearFecha, formatearHora } from "../utils/formato.js";
 import "../assets/PaseLista.css";
 
-const opciones = [
-  { nombre: "Inicio", ruta: "/instructor" },
-  { nombre: "Mis clases", ruta: "/instructor/clases" },
-  { nombre: "Pase de lista", ruta: "/instructor/asistencia" },
-  { nombre: "Mis alumnos", ruta: "/instructor/alumnos" },
-  { nombre: "Mis horarios", ruta: "/instructor/horarios" },
-  { nombre: "Mi perfil", ruta: "/instructor/perfil" },
-];
+const { nombre: rol, opciones } = menus.instructor;
 
 export default function PaseLista() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const claseIdParam = searchParams.get("claseId");
+  const { sesiones, cargando: cargandoSesiones, error: errorSesiones } = useSesionesInstructor();
 
-  // Reloj local para evaluación en tiempo real
-  const [fechaActual, setFechaActual] = useState(() => new Date());
+  // Sesión elegida: la de la URL o, por defecto, la que está en curso
+  const sesionPorDefecto = sesiones.find((s) => s.en_curso) || sesiones[0];
+  const sesionId =
+    searchParams.get("sesionId") || (sesionPorDefecto ? String(sesionPorDefecto.sesion_id) : "");
+  const sesion = sesiones.find((s) => String(s.sesion_id) === sesionId);
 
-  // Clases del instructor
-  const [clases, setClases] = useState([]);
-  const [cargandoClases, setCargandoClases] = useState(true);
-
-  // Participantes / Inscritos de la clase seleccionada
-  const [socios, setSocios] = useState([]);
-  const [cargandoSocios, setCargandoSocios] = useState(false);
-
-  // Mensajes de feedback
+  const [inscritos, setInscritos] = useState([]);
+  const [cargando, setCargando] = useState(false);
+  const [filtro, setFiltro] = useState("");
+  const [registrando, setRegistrando] = useState(null);
   const [mensaje, setMensaje] = useState("");
   const [error, setError] = useState("");
-  const [guardandoId, setGuardandoId] = useState(null);
 
-  // Actualizar el reloj cada 10 segundos para recálculo de horario en vivo
-  useEffect(() => {
-    const intervalo = setInterval(() => {
-      setFechaActual(new Date());
-    }, 10000);
-
-    return () => clearInterval(intervalo);
+  const cargarInscritos = useCallback(async (id) => {
+    const datos = await obtenerInscritos(id);
+    return Array.isArray(datos) ? datos : [];
   }, []);
 
   // 1. Cargar las clases asignadas al instructor autenticado
   useEffect(() => {
+    if (!sesionId) return;
     let activo = true;
 
-    async function cargar() {
-      setCargandoClases(true);
-      setError("");
-      try {
-        const datos = await obtenerClasesInstructor();
-        if (activo) {
-          const lista = Array.isArray(datos) ? datos : [];
-          setClases(lista);
-        }
-      } catch (err) {
-        if (activo) {
-          setError(
-            err.message || "No fue posible cargar las clases del instructor."
-          );
-        }
-      } finally {
-        if (activo) setCargandoClases(false);
-      }
-    }
-
-    cargar();
+    setCargando(true);
+    setError("");
+    cargarInscritos(sesionId)
+      .then((datos) => activo && setInscritos(datos))
+      .catch((err) => {
+        if (!activo) return;
+        setInscritos([]);
+        setError(err.message);
+      })
+      .finally(() => activo && setCargando(false));
 
     return () => {
       activo = false;
     };
-  }, []);
+  }, [sesionId, cargarInscritos]);
 
-  // Clases priorizadas: las sesiones en curso se sitúan primero
-  const clasesPriorizadas = useMemo(() => {
-    return ordenarClasesPriorizadas(clases, fechaActual);
-  }, [clases, fechaActual]);
-
-  // Determinar la clase seleccionada:
-  // Si viene en el query param, buscarla; si no, seleccionar la primera clase en curso o la primera de la lista
-  const claseSeleccionada = useMemo(() => {
-    if (!clasesPriorizadas.length) return null;
-
-    if (claseIdParam) {
-      const encontrada = clasesPriorizadas.find(
-        (c) => String(c.sesion_id) === String(claseIdParam)
-      );
-      if (encontrada) return encontrada;
-    }
-
-    // Si no se especificó o no se encontró, seleccionar la primera prioritaria
-    return clasesPriorizadas[0];
-  }, [clasesPriorizadas, claseIdParam]);
-
-  // Sincronizar el query param si no estaba definido o cambió por defecto
-  useEffect(() => {
-    if (claseSeleccionada && String(claseIdParam) !== String(claseSeleccionada.sesion_id)) {
-      setSearchParams({ claseId: String(claseSeleccionada.sesion_id) }, { replace: true });
-    }
-  }, [claseSeleccionada, claseIdParam, setSearchParams]);
-
-  // 2. Cargar socios inscritos de la clase seleccionada
-  useEffect(() => {
-    if (!claseSeleccionada?.sesion_id) {
-      setSocios([]);
-      return;
-    }
-
-    let activo = true;
-    async function cargarParticipantes() {
-      setCargandoSocios(true);
-      setMensaje("");
-      setError("");
-      try {
-        const inscritos = await obtenerInscritosClase(claseSeleccionada.sesion_id);
-        if (activo) {
-          setSocios(Array.isArray(inscritos) ? inscritos : []);
-        }
-      } catch (err) {
-        if (activo) {
-          setError(
-            err.message || "No fue posible cargar la lista de inscritos."
-          );
-        }
-      } finally {
-        if (activo) setCargandoSocios(false);
-      }
-    }
-
-    cargarParticipantes();
-
-    return () => {
-      activo = false;
-    };
-  }, [claseSeleccionada?.sesion_id]);
-
-  // Estado temporal de la clase seleccionada
-  const estadoClase = claseSeleccionada
-    ? obtenerEstadoTiempoClase(claseSeleccionada, fechaActual)
-    : "finalizada";
-
-  const puedeRegistrar = estadoClase === "en_curso";
-
-  // Manejador para cambiar de clase desde el selector
-  const cambiarClase = (event) => {
-    const id = event.target.value;
-    setSearchParams({ claseId: id });
+  const cambiarSesion = (e) => {
+    setSearchParams({ sesionId: e.target.value });
     setMensaje("");
     setError("");
+    setFiltro("");
   };
 
-  // Registrar asistencia en el backend
-  const marcarAsistencia = async (socioId) => {
+  // Registro manual de asistencia (RF-16). La validación de horario,
+  // inscripción y duplicados la hace el servidor.
+  const marcarAsistencia = async (socio) => {
     setMensaje("");
     setError("");
+    setRegistrando(socio.socio_id);
 
-    if (!puedeRegistrar) {
-      setError("El registro de asistencia solo está disponible durante la clase.");
-      return;
-    }
-
-    setGuardandoId(socioId);
     try {
-      await registrarAsistencia(claseSeleccionada.sesion_id, socioId);
-
-      // Actualizar estado del socio localmente a 'asistio'
-      setSocios((actuales) =>
-        actuales.map((s) =>
-          s.id === socioId ? { ...s, estado: "asistio" } : s
-        )
-      );
-
-      setMensaje("Asistencia registrada correctamente.");
+      const respuesta = await registrarAsistencia(sesionId, socio.socio_id);
+      setMensaje(`${socio.nombre}: ${respuesta.mensaje}`);
+      setInscritos(await cargarInscritos(sesionId));
     } catch (err) {
-      setError(err.message || "Error al registrar la asistencia.");
+      setError(`${socio.nombre}: ${err.message}`);
     } finally {
-      setGuardandoId(null);
+      setRegistrando(null);
     }
   };
 
-  // Conteo de asistencias
-  const asistenciasRegistradas = socios.filter((s) => s.estado === "asistio").length;
-  const asistenciasPendientes = socios.length - asistenciasRegistradas;
+  const filtrados = useMemo(() => {
+    const q = filtro.trim().toLowerCase();
+    if (!q) return inscritos;
+    return inscritos.filter(
+      (s) => s.nombre.toLowerCase().includes(q) || String(s.numero_socio).includes(q)
+    );
+  }, [inscritos, filtro]);
 
-  const estadoTexto = {
-    proxima: "La clase aún no comienza",
-    en_curso: "Clase en curso",
-    finalizada: "La clase ha finalizado",
-    cancelada: "Clase cancelada",
-  };
+  const asistieron = inscritos.filter((s) => s.estado === "asistio").length;
+  const puedeRegistrar = Boolean(sesion?.en_curso);
 
   return (
-    <DashboardLayout
-      titulo="Pase de lista"
-      rol="Instructor"
-      opciones={opciones}
-    >
+    <DashboardLayout titulo="Pase de lista" rol={rol} opciones={opciones}>
       <section className="pase-lista">
         <div className="pase-lista-encabezado">
           <div>
-            <span className="pase-lista-etiqueta">
-              Panel de Instructor
-            </span>
+            <span className="pase-lista-etiqueta">PANEL DE INSTRUCTOR</span>
             <h2>Registro de asistencia</h2>
-            <p>
-              Marca la asistencia de los socios inscritos en tus clases en curso.
-            </p>
+            <p>Marca la asistencia de los socios inscritos en tu clase en curso.</p>
           </div>
         </div>
 
         {/* SELECTOR DE CLASE CON PRIORIZACIÓN */}
         <div className="pase-lista-panel">
-          <label htmlFor="seleccionar-clase">
-            Seleccionar clase
-          </label>
+          <label htmlFor="seleccionar-clase">Seleccionar sesión</label>
 
-          {cargandoClases ? (
-            <p style={{ color: "#888", fontSize: "14px" }}>Cargando clases asignadas...</p>
-          ) : clasesPriorizadas.length === 0 ? (
-            <p style={{ color: "#888", fontSize: "14px" }}>No tienes clases programadas.</p>
+          {cargandoSesiones ? (
+            <p className="dashboard-cargando">Cargando sesiones...</p>
+          ) : errorSesiones ? (
+            <p className="pase-lista-error">{errorSesiones}</p>
+          ) : sesiones.length === 0 ? (
+            <p className="dashboard-cargando">No tienes sesiones vigentes.</p>
           ) : (
             <select
               id="seleccionar-clase"
-              value={claseSeleccionada ? String(claseSeleccionada.sesion_id) : ""}
-              onChange={cambiarClase}
+              value={sesion ? sesionId : ""}
+              onChange={cambiarSesion}
             >
-              {clasesPriorizadas.map((clase) => {
-                const esActiva = clase.estado_tiempo === "en_curso";
-                return (
-                  <option key={clase.sesion_id} value={String(clase.sesion_id)}>
-                    {esActiva ? "✦ [EN CURSO] " : ""}
-                    {clase.actividad} — {formatearFecha(clase.fecha)} (
-                    {formatearHora(clase.hora_inicio)} -{" "}
-                    {formatearHora(clase.hora_fin)})
-                  </option>
-                );
-              })}
+              {!sesion && <option value="">Selecciona una sesión</option>}
+              {sesiones.map((s) => (
+                <option key={s.sesion_id} value={s.sesion_id}>
+                  {etiquetaSesion(s)}
+                </option>
+              ))}
             </select>
           )}
         </div>
 
-        {claseSeleccionada && (
+        {sesion && (
           <>
             {/* PANEL INFORMATIVO DE LA SESIÓN */}
             <div className="pase-lista-panel">
               <div className="pase-lista-info">
                 <div>
-                  <h3>{claseSeleccionada.actividad}</h3>
+                  <h3>{sesion.actividad}</h3>
                   <p>
-                    Fecha: {formatearFecha(claseSeleccionada.fecha)} | Horario:{" "}
-                    {formatearHora(claseSeleccionada.hora_inicio)} -{" "}
-                    {formatearHora(claseSeleccionada.hora_fin)}
-                  </p>
-                  <p style={{ color: "#777", fontSize: "12px", marginTop: "4px" }}>
-                    Lugar: {claseSeleccionada.lugar || "Espacio general"}
+                    {formatearFecha(sesion.fecha)} · {formatearHora(sesion.hora_inicio)} –{" "}
+                    {formatearHora(sesion.hora_fin)}
+                    {sesion.lugar ? ` · ${sesion.lugar}` : ""}
                   </p>
                 </div>
 
-                <span
-                  className={`pase-lista-estado ${
-                    estadoClase === "en_curso"
-                      ? "durante"
-                      : estadoClase === "proxima"
-                        ? "antes"
-                        : "despues"
-                  }`}
-                >
-                  {estadoTexto[estadoClase] || "Fuera de horario"}
+                <span className={`pase-lista-estado ${puedeRegistrar ? "durante" : "antes"}`}>
+                  {puedeRegistrar ? "Clase en curso" : "La clase aún no comienza"}
                 </span>
               </div>
 
               <div className="pase-lista-resumen">
                 <div>
                   <span>Socios inscritos</span>
-                  <strong>{socios.length}</strong>
+                  <strong>{inscritos.length}</strong>
                 </div>
-
                 <div>
                   <span>Asistencias registradas</span>
-                  <strong>{asistenciasRegistradas}</strong>
+                  <strong>{asistieron}</strong>
                 </div>
-
                 <div>
                   <span>Pendientes</span>
-                  <strong>{asistenciasPendientes}</strong>
+                  <strong>{inscritos.filter((s) => s.estado === "inscrito").length}</strong>
                 </div>
               </div>
             </div>
@@ -303,67 +164,64 @@ export default function PaseLista() {
             <div className="pase-lista-panel">
               <h3>Lista de participantes</h3>
 
-              {cargandoSocios ? (
-                <p style={{ color: "#888", fontSize: "14px" }}>
-                  Cargando socios inscritos en esta clase...
-                </p>
-              ) : socios.length > 0 ? (
+              <input
+                type="search"
+                className="dashboard-input"
+                placeholder="Buscar por nombre o número de socio"
+                value={filtro}
+                onChange={(e) => setFiltro(e.target.value)}
+                style={{ marginBottom: 16 }}
+                aria-label="Buscar socio en la lista"
+              />
+
+              {mensaje && <p className="pase-lista-mensaje">{mensaje}</p>}
+              {error && <p className="pase-lista-error">{error}</p>}
+
+              {cargando ? (
+                <p className="dashboard-cargando">Cargando inscritos...</p>
+              ) : filtrados.length > 0 ? (
                 <div className="pase-lista-tabla-contenedor">
                   <table className="pase-lista-tabla">
                     <thead>
                       <tr>
-                        <th style={{ width: "60px", textAlign: "center" }}>#</th>
-                        <th>Número de socio</th>
-                        <th>Nombre completo</th>
+                        <th>No. socio</th>
+                        <th>Nombre del socio</th>
                         <th>Asistencia</th>
                         <th>Acción</th>
                       </tr>
                     </thead>
-
                     <tbody>
-                      {socios.map((socio, index) => {
+                      {filtrados.map((socio) => {
                         const registrada = socio.estado === "asistio";
-                        const guardando = guardandoId === socio.id;
-                        const nombreCompleto = [
-                          socio.nombre,
-                          socio.apellido_p,
-                          socio.apellido_m,
-                        ]
-                          .filter(Boolean)
-                          .join(" ");
+                        const procesada = socio.estado !== "inscrito";
 
                         return (
-                          <tr key={socio.id}>
-                            <td style={{ textAlign: "center", color: "#888" }}>
-                              {index + 1}
-                            </td>
-                            <td style={{ color: "#ff5a00", fontWeight: "600" }}>
-                              {socio.numero_socio || `SOC-${socio.id}`}
-                            </td>
-                            <td>{nombreCompleto}</td>
+                          <tr key={socio.socio_id}>
+                            <td>{socio.numero_socio}</td>
+                            <td>{socio.nombre}</td>
                             <td>
                               <span
-                                className={
-                                  registrada
-                                    ? "asistencia-ok"
-                                    : "asistencia-pendiente"
-                                }
+                                className={registrada ? "asistencia-ok" : "asistencia-pendiente"}
                               >
-                                {registrada ? "Registrada" : "Pendiente"}
+                                {registrada
+                                  ? `Registrada ${socio.fecha_asistencia?.slice(11, 16) || ""}`
+                                  : procesada
+                                  ? "Falta"
+                                  : "Pendiente"}
                               </span>
                             </td>
                             <td>
                               <button
                                 type="button"
-                                disabled={!puedeRegistrar || registrada || guardando}
-                                onClick={() => marcarAsistencia(socio.id)}
+                                disabled={!puedeRegistrar || procesada || registrando !== null}
+                                onClick={() => marcarAsistencia(socio)}
                                 className="pase-lista-boton"
                               >
-                                {guardando
-                                  ? "Guardando..."
+                                {registrando === socio.socio_id
+                                  ? "Registrando..."
                                   : registrada
-                                    ? "Registrada"
-                                    : "Marcar asistencia"}
+                                  ? "Registrada"
+                                  : "Marcar asistencia"}
                               </button>
                             </td>
                           </tr>
@@ -374,19 +232,13 @@ export default function PaseLista() {
                 </div>
               ) : (
                 <div className="pase-lista-vacio">
-                  <h3>No hay socios inscritos</h3>
+                  <h3>{inscritos.length ? "Sin coincidencias" : "No hay socios inscritos"}</h3>
                   <p>
-                    Actualmente no existen socios registrados en esta clase.
+                    {inscritos.length
+                      ? "Ningún socio coincide con la búsqueda."
+                      : "No existen participantes para esta sesión."}
                   </p>
                 </div>
-              )}
-
-              {mensaje && (
-                <p className="pase-lista-mensaje">{mensaje}</p>
-              )}
-
-              {error && (
-                <p className="pase-lista-error">{error}</p>
               )}
             </div>
           </>

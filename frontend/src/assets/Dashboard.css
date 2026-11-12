@@ -8,11 +8,23 @@
 
 .dashboard-sidebar {
   width: 250px;
-  min-height: 100vh;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
   background: #141414;
   border-right: 1px solid #2a2a2a;
   padding: 30px 20px;
   flex-shrink: 0;
+}
+
+/* El menú ocupa el espacio libre y hace scroll si no cabe,
+   dejando "Cerrar sesión" anclado al fondo */
+.dashboard-sidebar .dashboard-menu {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .dashboard-logo {
@@ -150,8 +162,14 @@
 
   .dashboard-sidebar {
     width: 100%;
+    height: auto;
+    position: static;
     min-height: auto;
     padding: 20px;
+  }
+
+  .dashboard-sidebar .dashboard-menu {
+    overflow-y: visible;
   }
 
   .dashboard-rol {
@@ -193,5 +211,141 @@
   .dashboard-logo a,
   .dashboard-logo-link {
     transition: none;
+  }
+}
+
+/* ===== Elementos comunes de las vistas conectadas a la API ===== */
+
+.dashboard-salir {
+  width: 100%;
+  margin-top: 20px;
+  flex-shrink: 0;
+  padding: 12px 18px;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  background: transparent;
+  color: #b5b5b5;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: 0.3s ease;
+}
+
+.dashboard-salir:hover {
+  border-color: #ff5a00;
+  color: #ff5a00;
+}
+
+.dashboard-cargando {
+  color: #b5b5b5;
+  font-size: 15px;
+}
+
+.dashboard-error {
+  padding: 14px;
+  margin-top: 12px;
+  border-left: 4px solid #e5484d;
+  border-radius: 6px;
+  background: #2a1515;
+  color: #ffb3b3;
+  font-size: 14px;
+}
+
+.dashboard-exito {
+  padding: 14px;
+  margin-top: 12px;
+  border-left: 4px solid #3fb950;
+  border-radius: 6px;
+  background: #15291b;
+  color: #8ee0a0;
+  font-size: 14px;
+}
+
+.dashboard-input {
+  width: 100%;
+  padding: 13px;
+  border: 1px solid #393939;
+  border-radius: 8px;
+  background: #1a1a1a;
+  color: #f2f2f2;
+  font-size: 14px;
+  outline: none;
+}
+
+.dashboard-input:focus {
+  border-color: #ff5a00;
+}
+
+.dashboard-badge {
+  display: inline-block;
+  padding: 5px 11px;
+  border-radius: 20px;
+  background: #303030;
+  color: #b5b5b5;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dashboard-badge.ok {
+  background: #173c25;
+  color: #8ee0a0;
+}
+
+.dashboard-badge.aviso {
+  background: #493719;
+  color: #ffc66d;
+}
+
+.dashboard-badge.error {
+  background: #3c1717;
+  color: #ff9a9a;
+}
+
+.dashboard-enlace-boton {
+  display: inline-block;
+  padding: 9px 14px;
+  border: none;
+  border-radius: 7px;
+  background: #ff5a00;
+  color: #060606;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.dashboard-enlace-boton:hover {
+  background: #d95c17;
+}
+
+.dashboard-datos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.dashboard-datos dt {
+  margin-bottom: 4px;
+  color: #b5b5b5;
+  font-size: 13px;
+}
+
+.dashboard-datos dd {
+  margin: 0;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.dashboard-tarjeta p.dashboard-tarjeta-texto {
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+@media (max-width: 600px) {
+  .dashboard-datos {
+    grid-template-columns: 1fr;
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout.jsx";
+import { menus } from "../components/menus.js";
 import {
   obtenerClasesInstructor,
   obtenerDetalleClase,
@@ -12,14 +13,7 @@ import {
 } from "../utils/clasesUtils.js";
 import "../assets/ClasesInstructor.css";
 
-const opciones = [
-  { nombre: "Inicio", ruta: "/instructor" },
-  { nombre: "Mis clases", ruta: "/instructor/clases" },
-  { nombre: "Pase de lista", ruta: "/instructor/asistencia" },
-  { nombre: "Mis alumnos", ruta: "/instructor/alumnos" },
-  { nombre: "Mis horarios", ruta: "/instructor/horarios" },
-  { nombre: "Mi perfil", ruta: "/instructor/perfil" },
-];
+const { nombre: rol, opciones } = menus.instructor;
 
 export default function ClasesInstructor() {
   const navigate = useNavigate();
@@ -128,7 +122,7 @@ export default function ClasesInstructor() {
   return (
     <DashboardLayout
       titulo="Mis Clases"
-      rol="Instructor"
+      rol={rol}
       opciones={opciones}
     >
       <section className="clases-instructor">
@@ -441,7 +435,7 @@ export default function ClasesInstructor() {
                         title="Ir directamente al pase de lista de esta clase activa"
                         onClick={() =>
                           navigate(
-                            `/instructor/asistencia?claseId=${clase.sesion_id}`
+                            `/instructor/asistencia?sesionId=${clase.sesion_id}`
                           )
                         }
                       >
@@ -454,7 +448,7 @@ export default function ClasesInstructor() {
                         title="Ver socios inscritos"
                         onClick={() =>
                           navigate(
-                            `/instructor/alumnos?claseId=${clase.sesion_id}`
+                            `/instructor/alumnos?sesionId=${clase.sesion_id}`
                           )
                         }
                       >
@@ -667,7 +661,7 @@ export default function ClasesInstructor() {
                     onClick={() => {
                       cerrarDetalles();
                       navigate(
-                        `/instructor/asistencia?claseId=${claseSeleccionada.sesion_id}`
+                        `/instructor/asistencia?sesionId=${claseSeleccionada.sesion_id}`
                       );
                     }}
                   >
@@ -680,7 +674,7 @@ export default function ClasesInstructor() {
                     onClick={() => {
                       cerrarDetalles();
                       navigate(
-                        `/instructor/alumnos?claseId=${claseSeleccionada.sesion_id}`
+                        `/instructor/alumnos?sesionId=${claseSeleccionada.sesion_id}`
                       );
                     }}
                   >

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FaApple, FaFacebookF, FaGoogle, FaRegEye, FaRegEyeSlash } from "react-icons/fa6";
 // Importamos el servicio de autenticación
-import { login } from "../services/auth";
+import { login, guardarSesion, rutaPorRol } from "../services/auth";
 
 const fondoOverlay = `linear-gradient(90deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,.10) 45%, rgba(0,0,0,.08) 100%),
                       linear-gradient(0deg, rgba(0,0,0,.75) 0%, transparent 45%)`;
@@ -45,25 +45,15 @@ export default function Login() {
       // Llamada al endpoint usando tu servicio
       const data = await login(correo, password);
 
-      // Guardar el token en el almacenamiento local
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.usuario));
-      console.log('Autenticación exitosa', data);
+      // Guardar el token y el usuario en el almacenamiento local
+      guardarSesion(data);
 
-      //Redirigir segun el rol
-      switch (data.usuario.rol) {
-        case 'recepcionista':
-        case 'administrador':
-          navigate('/recepcion')
-          break;
-        case 'socio':
-          navigate('/socio')
-          break;
-        case 'coach':
-          navigate('/instructor')
-          break;
-        default:
-          setError("Rol no reconocido o sin vista asignada");
+      // Redirigir según el rol
+      const ruta = rutaPorRol(data.usuario.rol);
+      if (ruta) {
+        navigate(ruta);
+      } else {
+        setError("Rol no reconocido o sin vista asignada");
       }
     } catch (err) {
       setError(err.message);
@@ -77,17 +67,34 @@ export default function Login() {
       <div className="flex min-h-[650px] w-[900px] max-w-full overflow-hidden rounded-[20px] border border-[#202020] bg-black shadow-[0_25px_60px_rgba(0,0,0,.8)] max-[800px]:min-h-screen max-[800px]:rounded-none">
         {/* Formulario */}
         <section className="w-[55%] bg-[#020202] px-[45px] pb-10 pt-[55px] max-[800px]:w-full max-[800px]:px-[30px] max-[800px]:py-[45px] max-[480px]:px-[22px] max-[480px]:py-[35px]">
-          <div className="mb-[55px] flex items-center gap-[13px]">
-            <div className="relative size-8 -skew-x-[15deg]" aria-hidden="true">
-              {barrasLogo.map(([ancho, top, left]) => (
-                <span
-                  key={top}
-                  className="absolute h-[7px] rounded-[2px] bg-acento"
-                  style={{ width: ancho, top, left }}
-                />
-              ))}
-            </div>
-            <h2 className="text-[22px] font-extrabold tracking-[1px]">SIGAC</h2>
+          <div className="mb-[55px] flex items-center justify-between gap-4 max-[800px]:mb-10">
+            {/* Logo: enlace a la página principal */}
+            <Link
+              to="/"
+              title="Volver a la página principal"
+              aria-label="SIGAC - Volver a la página principal"
+              className="flex items-center gap-[13px] rounded-md transition-opacity duration-200 hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-acento"
+            >
+              <div className="relative size-8 -skew-x-[15deg]" aria-hidden="true">
+                {barrasLogo.map(([ancho, top, left]) => (
+                  <span
+                    key={top}
+                    className="absolute h-[7px] rounded-[2px] bg-acento"
+                    style={{ width: ancho, top, left }}
+                  />
+                ))}
+              </div>
+              <h2 className="text-[22px] font-extrabold tracking-[1px]">SIGAC</h2>
+            </Link>
+
+            {/* En móvil no hay hover que indique que el logo es un enlace:
+                se muestra un botón explícito con área táctil amplia */}
+            <Link
+              to="/"
+              className="hidden min-h-11 items-center gap-1.5 rounded-lg border border-[#282c2f] px-3.5 text-[13px] text-[#ccc] transition-colors duration-200 hover:border-acento hover:text-acento max-[800px]:inline-flex"
+            >
+              <span aria-hidden="true">←</span> Inicio
+            </Link>
           </div>
 
           <div className="mb-[38px]">
@@ -181,8 +188,7 @@ export default function Login() {
 
             <div className="mt-[50px] text-center">
               <p className="text-[13px] text-[#9a9a9a]">
-                ¿No tienes cuenta?{" "}
-                <a href="#" className={`${enlaceClase} ml-[5px]`}>Regístrate aquí</a>
+                ¿No tienes cuenta? Acude a recepción para darte de alta.
               </p>
             </div>
           </form>

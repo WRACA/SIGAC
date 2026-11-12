@@ -121,6 +121,17 @@ pub struct SesionInstructor {
     pub inicio_iso: String,
     pub fin_iso: String,
     pub zona_horaria: String,
+    pub en_curso: bool,
+}
+
+// Socio inscrito en una sesión del instructor
+#[derive(Serialize, sqlx::FromRow)]
+pub struct InscritoSesion {
+    pub socio_id: i32,
+    pub numero_socio: i32,
+    pub nombre: String,
+    pub estado: String,
+    pub fecha_asistencia: Option<String>,
 }
 
 #[derive(serde::Serialize, sqlx::FromRow, Clone, Debug)]
@@ -131,16 +142,6 @@ pub struct AlumnoClase {
     pub apellido_p: String,
     pub apellido_m: Option<String>,
     pub estado_inscripcion: String,
-}
-
-#[derive(serde::Serialize, sqlx::FromRow, Clone, Debug)]
-pub struct SocioInscritoSesion {
-    pub id: i32,
-    pub numero_socio: i32,
-    pub nombre: String,
-    pub apellido_p: String,
-    pub apellido_m: Option<String>,
-    pub estado: String,
 }
 
 #[derive(serde::Serialize, Clone, Debug)]

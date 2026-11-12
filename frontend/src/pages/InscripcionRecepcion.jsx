@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout.jsx";
+import { menus } from "../components/menus.js";
+import { parsearFechaPg } from "../utils/formato.js";
 import "../assets/InscripcionRecepcion.css";
 import {
   buscarSocios,
@@ -8,17 +11,12 @@ import {
 } from "../services/inscripciones.js";
 
 // Menú de Recepcionista
-const opciones = [
-  { nombre: "Inicio", ruta: "/recepcion" },
-  { nombre: "Socios", ruta: "/recepcion/socios" },
-  { nombre: "Inscripciones", ruta: "/recepcion/inscripciones" },
-  { nombre: "Actividades", ruta: "/recepcion/actividades" },
-];
+const { opciones } = menus.recepcionista;
 
 // Formatea una sesión disponible para mostrar en el selector
 function formatearSesion(sesion) {
-  const inicio = new Date(sesion.inicio);
-  const fin = new Date(sesion.fin);
+  const inicio = parsearFechaPg(sesion.inicio);
+  const fin = parsearFechaPg(sesion.fin);
   const fechaStr = inicio.toLocaleDateString("es-MX", {
     weekday: "short",
     day: "numeric",
@@ -37,10 +35,14 @@ function formatearSesion(sesion) {
 }
 
 export default function InscripcionRecepcion() {
-  const [busqueda, setBusqueda] = useState("");
+  // Permite llegar con una búsqueda precargada (?q=...) desde la vista de socios
+  const [searchParams] = useSearchParams();
+  const [busqueda, setBusqueda] = useState(() => searchParams.get("q") || "");
   const [socioSeleccionado, setSocioSeleccionado] = useState(null);
   const [sesionSeleccionada, setSesionSeleccionada] = useState("");
-  const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
+  const [mostrarSugerencias, setMostrarSugerencias] = useState(
+    () => Boolean(searchParams.get("q"))
+  );
   const [mensaje, setMensaje] = useState("");
   const [tipoMensaje, setTipoMensaje] = useState("");
 

@@ -4,4 +4,7 @@
 node_modules/
 target/
 .env
-dist/
+
+requerimientos.md
+
+docs/QR/
