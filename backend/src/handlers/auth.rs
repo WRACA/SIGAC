@@ -123,6 +123,12 @@ pub async fn register(
         nuevo_socio AS (
             INSERT INTO socio (usuario_id)
             SELECT id FROM nuevo_usuario
+            RETURNING id
+        ),
+        -- SIG-95: credencial QR con token UUID aleatorio (DEFAULT gen_random_uuid())
+        nueva_credencial AS (
+            INSERT INTO credencial_qr (socio_id)
+            SELECT id FROM nuevo_socio
         )
         SELECT id, nombre, correo, rol::text FROM nuevo_usuario
         "#

@@ -1,6 +1,7 @@
 mod errors;
 mod handlers;
 mod models;
+mod qr;
 mod seed;
 
 use axum::{routing::{get,post,patch}, Router};
