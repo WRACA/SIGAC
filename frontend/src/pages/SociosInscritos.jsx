@@ -43,6 +43,10 @@ export default function SociosInscritos() {
     };
   }, [sesionId]);
 
+  const claseSeleccionada = clases.find(
+    (c) => String(c.sesion_id) === String(claseId)
+  );
+
   return (
     <DashboardLayout titulo="Socios inscritos" rol={rol} opciones={opciones}>
       <section className="socios-inscritos">
@@ -54,6 +58,7 @@ export default function SociosInscritos() {
           </div>
         </div>
 
+        {/* SELECTOR DE CLASE */}
         <div className="socios-inscritos-panel">
           <h3>Seleccionar sesión</h3>
           <label htmlFor="clase-inscritos">Sesión</label>

@@ -12,6 +12,8 @@ use handlers::recepcion::actividades_inscripcion;
 use handlers::recepcion::registrar_inscripcion;
 use handlers::perfil::obtener_perfil;
 use handlers::instructor::consultar_sesiones;
+use handlers::instructor::consultar_detalle_sesion;
+use handlers::instructor::consultar_inscritos_sesion;
 use handlers::instructor::registrar_asistencia;
 use handlers::instructor::consultar_inscritos;
 

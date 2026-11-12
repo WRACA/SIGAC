@@ -31,6 +31,7 @@ export default function PaseLista() {
     return Array.isArray(datos) ? datos : [];
   }, []);
 
+  // 1. Cargar las clases asignadas al instructor autenticado
   useEffect(() => {
     if (!sesionId) return;
     let activo = true;
@@ -65,6 +66,7 @@ export default function PaseLista() {
     setError("");
     setRegistrando(socio.socio_id);
 
+    setGuardandoId(socioId);
     try {
       const respuesta = await registrarAsistencia(sesionId, socio.socio_id);
       setMensaje(`${socio.nombre}: ${respuesta.mensaje}`);
@@ -98,6 +100,7 @@ export default function PaseLista() {
           </div>
         </div>
 
+        {/* SELECTOR DE CLASE CON PRIORIZACIÓN */}
         <div className="pase-lista-panel">
           <label htmlFor="seleccionar-clase">Seleccionar sesión</label>
 
@@ -125,6 +128,7 @@ export default function PaseLista() {
 
         {sesion && (
           <>
+            {/* PANEL INFORMATIVO DE LA SESIÓN */}
             <div className="pase-lista-panel">
               <div className="pase-lista-info">
                 <div>
@@ -157,6 +161,7 @@ export default function PaseLista() {
               </div>
             </div>
 
+            {/* TABLA DE SOCIOS INSCRITOS */}
             <div className="pase-lista-panel">
               <h3>Lista de participantes</h3>
 
