@@ -16,6 +16,12 @@ Enum rol_usuario {
   administrador
 }
 
+Enum estado_credencial {
+  activa
+  inactiva
+  revocada
+}
+
 Enum periodicidad {
   mensual
   semestral
@@ -97,6 +103,26 @@ Table socio {
   fecha_alta date [not null, default: `current_date`]
 
   Note: 'Perfil 1:1 con usuario (rol = socio)'
+}
+
+Table credencial_qr {
+  id int [pk, increment]
+  socio_id int [not null]
+  token uuid [not null, unique, default: `gen_random_uuid()`, note: 'UUID v4 aleatorio. Contenido del QR: SIGAC:SOCIO:1:<token>']
+  estado estado_credencial [not null, default: 'activa']
+  creado_en timestamptz [not null, default: `now()`]
+  revocado_en timestamptz
+
+  indexes {
+    socio_id [name: 'ix_credencial_qr_socio']
+    socio_id [unique, name: 'uq_credencial_qr_socio_activa', note: 'Parcial: WHERE estado = activa']
+  }
+
+  checks {
+    `(estado = 'activa') = (revocado_en IS NULL)` [name: 'ck_credencial_qr_revocacion']
+  }
+
+  Note: 'Credenciales QR de socios. Máximo una activa por socio. Solo las activas son válidas'
 }
 
 Table coach {
@@ -312,6 +338,7 @@ Table pago {
 // =====================================================
 Ref: socio.usuario_id - usuario.id [delete: restrict]
 Ref: coach.usuario_id - usuario.id [delete: restrict]
+Ref: credencial_qr.socio_id > socio.id [delete: restrict]
 
 Ref: plan_precio.plan_id > plan_membresia.id [delete: restrict]
 Ref: membresia.socio_id > socio.id [delete: restrict]

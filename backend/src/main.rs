@@ -1,6 +1,7 @@
 mod errors;
 mod handlers;
 mod models;
+mod qr;
 
 use axum::{routing::{get,post,patch}, Router};
 use sqlx::{postgres::PgPoolOptions, PgPool};
