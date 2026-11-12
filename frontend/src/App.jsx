@@ -21,9 +21,6 @@ import SociosRecepcion from "./pages/SociosRecepcion.jsx";
 import SesionesRecepcion from "./pages/SesionesRecepcion.jsx";
 import PerfilSocio from "./pages/PerfilSocio.jsx";
 import HorariosSocio from "./pages/HorariosSocio.jsx";
-import ClasesInstructor from "./pages/ClasesInstructor.jsx";
-import SociosInscritos from "./pages/SociosInscritos.jsx";
-import PaseLista from "./pages/PaseLista.jsx";
 import AccesoDenegado from "./pages/AccesoDenegado.jsx";
 
 export default function App() {

@@ -11,7 +11,14 @@ export function useSesionesInstructor() {
   useEffect(() => {
     let activo = true;
     obtenerSesionesInstructor()
-      .then((datos) => activo && setSesiones(Array.isArray(datos) ? datos : []))
+      .then((datos) => {
+        if (!activo) return;
+        // El backend devuelve todas las sesiones; aquí solo interesan las vigentes
+        const vigentes = (Array.isArray(datos) ? datos : []).filter(
+          (s) => s.estado_tiempo === "en_curso" || s.estado_tiempo === "proxima"
+        );
+        setSesiones(vigentes);
+      })
       .catch((err) => activo && setError(err.message))
       .finally(() => activo && setCargando(false));
     return () => {

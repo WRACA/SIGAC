@@ -43,10 +43,6 @@ export default function SociosInscritos() {
     };
   }, [sesionId]);
 
-  const claseSeleccionada = clases.find(
-    (c) => String(c.sesion_id) === String(claseId)
-  );
-
   return (
     <DashboardLayout titulo="Socios inscritos" rol={rol} opciones={opciones}>
       <section className="socios-inscritos">

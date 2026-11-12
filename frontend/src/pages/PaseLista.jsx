@@ -66,7 +66,6 @@ export default function PaseLista() {
     setError("");
     setRegistrando(socio.socio_id);
 
-    setGuardandoId(socioId);
     try {
       const respuesta = await registrarAsistencia(sesionId, socio.socio_id);
       setMensaje(`${socio.nombre}: ${respuesta.mensaje}`);
