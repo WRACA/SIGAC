@@ -3,3 +3,4 @@ pub mod actividades;
 pub mod recepcion;
 pub mod perfil;
 pub mod instructor;
+pub mod credencial;

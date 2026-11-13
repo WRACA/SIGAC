@@ -13,7 +13,6 @@ use sqlx::PgPool;
 pub const PREFIJO_QR_SOCIO: &str = "SIGAC:SOCIO:1:";
 
 /// Construye el contenido del QR a partir del token UUID.
-#[allow(dead_code)]
 pub fn generar_contenido(token: &str) -> String {
     format!("{PREFIJO_QR_SOCIO}{token}")
 }

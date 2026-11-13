@@ -334,6 +334,7 @@ impl fmt::Display for Resumen {
             self.usuarios, self.recepcionistas, self.coaches, self.socios)?;
         writeln!(f, "  coach ................ {}", self.coaches)?;
         writeln!(f, "  socio ................ {}", self.socios)?;
+        writeln!(f, "  credencial_qr ........ {}", self.socios)?;
         writeln!(f, "  actividad ............ {} (nuevas)", self.actividades)?;
         writeln!(f, "  coach_actividad ...... {} (nuevas)", self.coach_actividad)?;
         writeln!(f, "  horario_actividad .... {}", self.horarios)?;
@@ -638,6 +639,12 @@ async fn sembrar(conn: &mut PgConnection, hash: &str) -> Result<Resumen, sqlx::E
         .bind(dias_desde_alta(i))
         .fetch_one(&mut *conn)
         .await?;
+
+        // SIG-95: credencial QR activa con token UUID aleatorio (DEFAULT gen_random_uuid())
+        sqlx::query("INSERT INTO credencial_qr (socio_id) VALUES ($1)")
+            .bind(socio_id)
+            .execute(&mut *conn)
+            .await?;
 
         let nivel = nivel_plan_socio(i);
         let periodicidad = periodicidad_socio(i);

@@ -11,7 +11,6 @@ use crate::{
     errors::{error_interno, ApiError},
     handlers::auth::Claims,
     models::PerfilSocio,
-    qr,
 };
 
 // GET /api/socio/perfil
@@ -67,20 +66,15 @@ pub async fn obtener_perfil(
             u.correo,
             u.telefono,
             s.fecha_nacimiento::text AS fecha_nacimiento,
-            s.fecha_alta::text AS fecha_alta,
-            $2 || c.token::text AS contenido_qr
+            s.fecha_alta::text AS fecha_alta
         FROM socio s
         JOIN usuario u ON s.usuario_id = u.id
-        LEFT JOIN credencial_qr c
-               ON c.socio_id = s.id
-              AND c.estado = 'activa'
         WHERE u.id = $1
           AND u.rol = 'socio'
           AND u.activo = TRUE
         "#
     )
     .bind(datos.claims.id)
-    .bind(qr::PREFIJO_QR_SOCIO)
     .fetch_optional(&state.api_pool)
     .await
     .map_err(error_interno)?;

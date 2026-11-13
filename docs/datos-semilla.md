@@ -76,6 +76,8 @@ Biografías (`coach.biografia`):
 
 `numero_socio` lo asigna la secuencia `numero_socio_seq`. `fecha_alta` = hoy − (30 + 12·(n−1)) días.
 
+Cada socio recibe además una credencial QR (`credencial_qr`) con estado `activa` y token UUID aleatorio generado por `gen_random_uuid()` (por eso el token cambia en cada base sembrada).
+
 | # | Correo | Nombre | Teléfono | Nacimiento | Alta |
 |---|---|---|---|---|---|
 | 1 | ana.martinez@sigac.com | Ana Martínez López | 5552000001 | 1990-03-14 | hoy − 30 días |
@@ -307,6 +309,5 @@ El resumen impreso en consola al ejecutar la semilla muestra los números exacto
 
 ## 10. Tablas que NO se llenan
 
-- Credenciales QR (ver `docs/QR/SIG-95.md`): la tabla aún no existe en el esquema.
 - Pagos con `concepto = 'sesion'`: no hay inscripciones con `tipo_acceso = 'pago'`.
 - Usuarios con rol `administrador`.
