@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import DashboardLayout from "../components/DashboardLayout.jsx";
 import { menus } from "../components/menus.js";
-import { obtenerPerfil } from "../services/socio.js";
+import CodigoQR from "../components/CodigoQR.jsx";
+import { obtenerCredencialQR, obtenerPerfil } from "../services/socio.js";
 import { formatearFecha, nombreCompleto } from "../utils/formato.js";
 import "../assets/SociosInscritos.css";
 
@@ -10,12 +11,18 @@ const { nombre: rol, opciones } = menus.socio;
 export default function PerfilSocio() {
   const [perfil, setPerfil] = useState(null);
   const [error, setError] = useState("");
+  const [qr, setQr] = useState(null);
+  const [errorQr, setErrorQr] = useState("");
 
   useEffect(() => {
     let activo = true;
     obtenerPerfil()
       .then((datos) => activo && setPerfil(datos))
       .catch((err) => activo && setError(err.message));
+    // La credencial se carga aparte: si falla, el perfil se sigue mostrando
+    obtenerCredencialQR()
+      .then((datos) => activo && setQr(datos))
+      .catch((err) => activo && setErrorQr(err.message));
     return () => {
       activo = false;
     };
@@ -40,7 +47,26 @@ export default function PerfilSocio() {
                 <h3>Número de socio</h3>
                 <p>{perfil.numero_socio}</p>
               </div>
-              {/* Espacio reservado para el código QR del socio (siguiente etapa) */}
+            </div>
+
+            <div className="socios-inscritos-panel" style={{ marginBottom: 20 }}>
+              <h3>Mi credencial QR</h3>
+              {errorQr && <p className="dashboard-error">{errorQr}</p>}
+              {!errorQr && !qr && <p className="dashboard-cargando">Cargando credencial...</p>}
+              {qr && (
+                <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
+                  <CodigoQR valor={qr.contenido} etiqueta="Mi credencial QR de socio" />
+                  <div className="max-w-sm text-center sm:text-left">
+                    <p className="text-texto">
+                      Preséntalo en recepción para inscribirte a una actividad o en tus
+                      clases para registrar tu asistencia.
+                    </p>
+                    <p className="mt-3 text-sm text-suave">
+                      Tu credencial es personal: no la compartas con nadie.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="socios-inscritos-panel">

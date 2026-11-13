@@ -102,8 +102,12 @@ pub struct PerfilSocio {
     pub telefono: Option<String>,
     pub fecha_nacimiento: Option<String>,
     pub fecha_alta: String,
-    // Contenido del QR (SIGAC:SOCIO:1:<UUID>) de la credencial activa
-    pub contenido_qr: Option<String>,
+}
+
+// Credencial QR del socio: solo lo necesario para dibujar el código
+#[derive(Serialize)]
+pub struct CredencialQr {
+    pub contenido: String, // SIGAC:SOCIO:1:<UUID>
 }
 
 #[derive(serde::Serialize, sqlx::FromRow, Clone, Debug)]

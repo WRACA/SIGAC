@@ -13,6 +13,7 @@ use handlers::recepcion::buscar_socios;
 use handlers::recepcion::actividades_inscripcion;
 use handlers::recepcion::registrar_inscripcion;
 use handlers::perfil::obtener_perfil;
+use handlers::credencial::obtener_credencial_qr;
 use handlers::instructor::consultar_sesiones;
 use handlers::instructor::consultar_detalle_sesion;
 use handlers::instructor::registrar_asistencia;
@@ -83,6 +84,7 @@ async fn main() {
     .route("/api/recepcion/actividades", get(actividades_inscripcion))
     .route("/api/recepcion/inscripciones", post(registrar_inscripcion))
     .route("/api/socio/perfil", get(obtener_perfil))
+    .route("/api/socio/credencial-qr", get(obtener_credencial_qr))
     .route("/api/instructor/sesiones", get(consultar_sesiones))
     .route("/api/instructor/sesiones/{id}", get(consultar_detalle_sesion))
     .route("/api/instructor/sesiones/{id}/inscritos", get(consultar_inscritos))
