@@ -1,0 +1,193 @@
+
+import { useEffect, useState } from "react";
+
+import DashboardLayout from "../components/DashboardLayout.jsx";
+import { obtenerSesiones } from "../services/inscripciones.js";
+
+import "../assets/SelectorSesionQR.css";
+
+// Menú de recepción
+const opciones = [
+  { nombre: "Inicio", ruta: "/recepcion" },
+  { nombre: "Socios", ruta: "/recepcion/socios" },
+  { nombre: "Inscripciones", ruta: "/recepcion/inscripciones" },
+  { nombre: "Inscripción QR", ruta: "/recepcion/inscripcion-qr" },
+  { nombre: "Actividades", ruta: "/recepcion/actividades" },
+];
+
+// Formatea la fecha y hora de una sesión
+function formatearFecha(fecha) {
+  if (!fecha) return "No disponible";
+
+  return new Date(fecha).toLocaleString("es-MX", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export default function SelectorSesionQR() {
+  const [sesiones, setSesiones] = useState([]);
+  const [sesionSeleccionada, setSesionSeleccionada] = useState("");
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+  const [intento, setIntento] = useState(0);
+
+  // Consulta las sesiones disponibles al cargar la pantalla
+  useEffect(() => {
+    let activo = true;
+
+    async function cargarSesiones() {
+      try {
+        setCargando(true);
+        setError("");
+
+        const datos = await obtenerSesiones();
+
+        if (activo) {
+          setSesiones(Array.isArray(datos) ? datos : []);
+        }
+      } catch (err) {
+        if (activo) {
+          setError(err.message || "No fue posible cargar las sesiones.");
+        }
+      } finally {
+        if (activo) {
+          setCargando(false);
+        }
+      }
+    }
+
+    cargarSesiones();
+
+    return () => {
+      activo = false;
+    };
+  }, [intento]);
+
+  // Obtiene la información de la sesión seleccionada
+  const sesionActual = sesiones.find(
+    (sesion) => String(sesion.sesion_id) === sesionSeleccionada
+  );
+
+  return (
+    <DashboardLayout
+      titulo="Inscripción QR"
+      rol="Recepcionista"
+      opciones={opciones}
+    >
+      <div className="selector-qr-contenedor">
+        <h2>Inscripción mediante código QR</h2>
+
+        <p className="selector-qr-descripcion">
+          Selecciona la sesión en la que deseas registrar la asistencia
+          de un socio mediante su código QR.
+        </p>
+
+        <section className="selector-qr-seccion">
+          <label htmlFor="sesion-qr">
+            Seleccionar sesión
+          </label>
+
+          {cargando ? (
+            <p className="selector-qr-mensaje">
+              Cargando sesiones disponibles...
+            </p>
+          ) : error ? (
+            <div className="selector-qr-error">
+              <p>{error}</p>
+
+              <button
+                type="button"
+                onClick={() => setIntento((actual) => actual + 1)}
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : sesiones.length === 0 ? (
+            <p className="selector-qr-mensaje">
+              No hay sesiones disponibles en este momento.
+            </p>
+          ) : (
+            <select
+              id="sesion-qr"
+              value={sesionSeleccionada}
+              onChange={(e) => setSesionSeleccionada(e.target.value)}
+            >
+              <option value="">Selecciona una sesión</option>
+
+              {sesiones.map((sesion) => (
+                <option
+                  key={sesion.sesion_id}
+                  value={sesion.sesion_id}
+                >
+                  {sesion.actividad} —{" "}
+                  {new Date(sesion.inicio).toLocaleString("es-MX")}{" "}
+                  ({sesion.cupos_disponibles} cupos)
+                </option>
+              ))}
+            </select>
+          )}
+        </section>
+
+        {sesionActual && (
+          <section className="selector-qr-detalles">
+            <h3>Detalles de la sesión seleccionada</h3>
+
+            <p>
+              <strong>Actividad:</strong> {sesionActual.actividad}
+            </p>
+
+            <p>
+              <strong>Inicio:</strong>{" "}
+              {formatearFecha(sesionActual.inicio)}
+            </p>
+
+            <p>
+              <strong>Fin:</strong>{" "}
+              {formatearFecha(sesionActual.fin)}
+            </p>
+
+            <p>
+              <strong>Instructor:</strong>{" "}
+              {sesionActual.coach || "No asignado"}
+            </p>
+
+            <p>
+              <strong>Lugar:</strong>{" "}
+              {sesionActual.lugar || "No especificado"}
+            </p>
+
+            <p>
+              <strong>Cupos disponibles:</strong>{" "}
+              {sesionActual.cupos_disponibles}
+            </p>
+          </section>
+        )}
+
+        <section
+          className={`lector-qr-panel ${
+            sesionActual ? "lector-qr-habilitado" : "lector-qr-bloqueado"
+          }`}
+        >
+          <h3>Lector de código QR</h3>
+
+          {!sesionActual ? (
+            <p>
+              Primero debes seleccionar una sesión para habilitar
+              el lector QR.
+            </p>
+          ) : (
+            <p>
+              Sesión seleccionada correctamente. El lector QR está
+              listo para integrarse con esta sesión.
+            </p>
+          )}
+        </section>
+      </div>
+    </DashboardLayout>
+  );
+}

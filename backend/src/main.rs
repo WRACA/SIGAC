@@ -18,6 +18,7 @@ use handlers::instructor::consultar_sesiones;
 use handlers::instructor::consultar_detalle_sesion;
 use handlers::instructor::registrar_asistencia;
 use handlers::instructor::consultar_inscritos;
+use handlers::socio::obtener_inscripciones;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -85,6 +86,7 @@ async fn main() {
     .route("/api/recepcion/inscripciones", post(registrar_inscripcion))
     .route("/api/socio/perfil", get(obtener_perfil))
     .route("/api/socio/credencial-qr", get(obtener_credencial_qr))
+    .route("/api/socio/inscripciones", get(obtener_inscripciones))
     .route("/api/instructor/sesiones", get(consultar_sesiones))
     .route("/api/instructor/sesiones/{id}", get(consultar_detalle_sesion))
     .route("/api/instructor/sesiones/{id}/inscritos", get(consultar_inscritos))

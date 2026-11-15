@@ -19,3 +19,13 @@ export function obtenerCredencialQR() {
     mensajeError: "No se pudo obtener tu credencial QR",
   });
 }
+
+/**
+ * Obtiene las inscripciones del socio autenticado.
+ * GET /api/socio/inscripciones
+ */
+export function obtenerMisInscripciones() {
+  return apiFetch("/api/socio/inscripciones", {
+    mensajeError: "No se pudieron obtener tus inscripciones",
+  });
+}
