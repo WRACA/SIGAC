@@ -22,6 +22,8 @@ import SesionesRecepcion from "./pages/SesionesRecepcion.jsx";
 import PerfilSocio from "./pages/PerfilSocio.jsx";
 import HorariosSocio from "./pages/HorariosSocio.jsx";
 import AccesoDenegado from "./pages/AccesoDenegado.jsx";
+import MisActividades from "./pages/MisActividades.jsx";
+import MiHorario from "./pages/MiHorario.jsx";
 
 export default function App() {
   return (
@@ -44,6 +46,8 @@ export default function App() {
         <Route path="socio" element={<Socio />} />
         <Route path="socio/perfil" element={<PerfilSocio />} />
         <Route path="socio/horarios" element={<HorariosSocio />} />
+        <Route path="socio/actividades" element={<MisActividades />} />
+        <Route path="socio/mi-horario" element={<MiHorario />} />
         <Route path="socio/:seccion" element={<SeccionDashboardPorRol rol="socio" />} />
       </Route>
 

@@ -168,3 +168,18 @@ pub struct AsistenciaResponse {
     pub inscripcion_id: i64,
     pub mensaje: String,
 }
+
+// Información de las inscripciones del socio autenticado
+#[derive(serde::Serialize, sqlx::FromRow)]
+pub struct InscripcionSocio {
+    pub id: i64,
+    pub sesion_id: i64,
+    pub actividad: String,
+    pub inicio: String,
+    pub fin: String,
+    pub coach: String,
+    pub lugar: Option<String>,
+    pub estado: String,
+    pub tipo_acceso: String,
+    pub fecha_asistencia: Option<String>,
+}
