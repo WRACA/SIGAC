@@ -1,15 +1,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import DashboardLayout from "../components/DashboardLayout.jsx";
+import { menus } from "../components/menus.js";
 import { obtenerMisInscripciones } from "../services/socio.js";
 import "../assets/MiHorario.css";
 
-const opciones = [
-  { nombre: "Inicio", ruta: "/socio" },
-  { nombre: "Mis actividades", ruta: "/socio/actividades" },
-  { nombre: "Mi horario", ruta: "/socio/horarios" },
-  { nombre: "Mi perfil", ruta: "/socio/perfil" },
-];
+const { nombre: rol, opciones } = menus.socio;
 
 const HORA_INICIO = 6;
 const HORA_FIN = 22;
@@ -158,7 +154,7 @@ export default function MiHorario() {
   return (
     <DashboardLayout
       titulo="Mi horario"
-      rol="Socio"
+      rol={rol}
       opciones={opciones}
     >
       <section className="mi-horario">

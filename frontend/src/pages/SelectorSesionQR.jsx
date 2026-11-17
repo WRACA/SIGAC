@@ -2,18 +2,12 @@
 import { useEffect, useState } from "react";
 
 import DashboardLayout from "../components/DashboardLayout.jsx";
+import { menus } from "../components/menus.js";
 import { obtenerSesiones } from "../services/inscripciones.js";
 
 import "../assets/SelectorSesionQR.css";
 
-// Menú de recepción
-const opciones = [
-  { nombre: "Inicio", ruta: "/recepcion" },
-  { nombre: "Socios", ruta: "/recepcion/socios" },
-  { nombre: "Inscripciones", ruta: "/recepcion/inscripciones" },
-  { nombre: "Inscripción QR", ruta: "/recepcion/inscripcion-qr" },
-  { nombre: "Actividades", ruta: "/recepcion/actividades" },
-];
+const { nombre: rol, opciones } = menus.recepcionista;
 
 // Formatea la fecha y hora de una sesión
 function formatearFecha(fecha) {
@@ -76,7 +70,7 @@ export default function SelectorSesionQR() {
   return (
     <DashboardLayout
       titulo="Inscripción QR"
-      rol="Recepcionista"
+      rol={rol}
       opciones={opciones}
     >
       <div className="selector-qr-contenedor">
