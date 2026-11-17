@@ -57,3 +57,13 @@ export function registrarInscripcion(socioId, sesionId) {
     mensajeError: "Error al registrar la inscripción",
   });
 }
+
+/**
+ * Obtiene los planes y precios disponibles para dar de alta socios.
+ * GET /api/recepcion/planes
+ */
+export function obtenerPlanes() {
+  return apiFetch(`${API_URL}/planes`, {
+    mensajeError: "Error al obtener los planes y precios",
+  });
+}
