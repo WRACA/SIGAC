@@ -183,3 +183,22 @@ pub struct InscripcionSocio {
     pub tipo_acceso: String,
     pub fecha_asistencia: Option<String>,
 }
+
+// Contenido leído del QR del socio (SIGAC:SOCIO:1:<UUID>)
+#[derive(Deserialize)]
+pub struct InscripcionQrRequest {
+    pub contenido: String,
+}
+
+// Inscripción creada a partir del QR
+#[derive(Serialize)]
+pub struct InscripcionQrResponse {
+    pub id: i64,
+    pub socio_id: i32,
+    pub sesion_id: i64,
+    pub tipo_acceso: String,
+    pub estado: String,
+    pub fecha_inscripcion: String,
+    pub inscrito_por: i32, // usuario (recepcionista) que realizó la inscripción
+    pub mensaje: String,
+}
