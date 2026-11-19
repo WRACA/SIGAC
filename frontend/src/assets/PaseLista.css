@@ -227,3 +227,83 @@
     white-space: nowrap;
   }
 }
+
+/* LECTOR QR DE ASISTENCIA */
+.pase-lista-lector {
+  padding: 24px;
+  background: #141414;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+}
+
+.pase-lista-lector h3 {
+  margin: 0 0 10px;
+  color: #f2f2f2;
+  font-size: 19px;
+}
+
+.pase-lista-lector > p {
+  color: #b5b5b5;
+  font-size: 14px;
+}
+
+.pase-lista-video {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  max-height: 380px;
+  margin: 20px auto;
+  background: #060606;
+  border: 2px solid #f26d21;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.pase-lista-lector-acciones {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.pase-lista-lector-acciones button {
+  padding: 12px 22px;
+  color: #fff;
+  background: #f26d21;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.pase-lista-lector-acciones button:hover {
+  background: #d95c17;
+}
+
+.pase-lista-lector-acciones button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+.pase-lista-lector .pase-lista-mensaje,
+.pase-lista-lector .pase-lista-error {
+  padding: 12px;
+  border-radius: 8px;
+  background: #202020;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .pase-lista-lector {
+    padding: 18px;
+  }
+
+  .pase-lista-video {
+    max-height: 280px;
+  }
+
+  .pase-lista-lector-acciones button {
+    width: 100%;
+  }
+}

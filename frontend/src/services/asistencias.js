@@ -38,3 +38,20 @@ export function registrarAsistencia(sesionId, socioId) {
     mensajeError: "No se pudo registrar la asistencia",
   });
 }
+
+/**
+ * Registra la asistencia mediante el escaneo de una credencial QR.
+ * POST /api/coach/asistencia/qr
+ * @param {number} sesionId
+ * @param {string} contenido - Contenido leído del código QR.
+ */
+export function registrarAsistenciaQR(sesionId, contenido) {
+  return apiFetch("/api/coach/asistencia/qr", {
+    method: "POST",
+    body: {
+      sesion_id: Number(sesionId),
+      contenido,
+    },
+    mensajeError: "No se pudo registrar la asistencia mediante QR",
+  });
+}

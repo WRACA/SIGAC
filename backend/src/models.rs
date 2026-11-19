@@ -190,6 +190,13 @@ pub struct InscripcionQrRequest {
     pub contenido: String,
 }
 
+// Datos necesarios para registrar asistencia mediante una credencial QR.
+#[derive(Deserialize)]
+pub struct AsistenciaQrRequest {
+    pub contenido: String,
+    pub sesion_id: i64,
+}
+
 // Inscripción creada a partir del QR
 #[derive(Serialize)]
 pub struct InscripcionQrResponse {

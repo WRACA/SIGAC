@@ -6,6 +6,7 @@ import { obtenerInscritos, registrarAsistencia } from "../services/asistencias.j
 import { useSesionesInstructor, etiquetaSesion } from "../hooks/useSesionesInstructor.js";
 import { formatearFecha, formatearHora } from "../utils/formato.js";
 import "../assets/PaseLista.css";
+import LectorQRAsistencia from "../components/LectorQRAsistencia.jsx";
 
 const { nombre: rol, opciones } = menus.instructor;
 
@@ -13,10 +14,16 @@ export default function PaseLista() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { sesiones, cargando: cargandoSesiones, error: errorSesiones } = useSesionesInstructor();
 
-  // Sesión elegida: la de la URL o, por defecto, la que está en curso
-  const sesionPorDefecto = sesiones.find((s) => s.en_curso) || sesiones[0];
-  const sesionId =
-    searchParams.get("sesionId") || (sesionPorDefecto ? String(sesionPorDefecto.sesion_id) : "");
+  // Evitar elegir arbitrariamente cuando hay sesiones simultáneas.
+  const sesionesEnCurso = sesiones.filter((s) => s.en_curso);
+  const sesionPorDefecto =
+  sesionesEnCurso.length > 1
+    ? null
+    : sesionesEnCurso[0] || sesiones[0];
+const sesionId =
+  searchParams.get("sesionId") ||
+  (sesionPorDefecto ? String(sesionPorDefecto.sesion_id) : "");
+
   const sesion = sesiones.find((s) => String(s.sesion_id) === sesionId);
 
   const [inscritos, setInscritos] = useState([]);
@@ -103,6 +110,13 @@ export default function PaseLista() {
         <div className="pase-lista-panel">
           <label htmlFor="seleccionar-clase">Seleccionar sesión</label>
 
+          {sesionesEnCurso.length > 1 && !searchParams.get("sesionId") && (
+            <p className="pase-lista-error">
+              Tienes varias clases en curso. Selecciona la sesión en la que deseas
+              registrar asistencias.
+              </p>
+            )}
+
           {cargandoSesiones ? (
             <p className="dashboard-cargando">Cargando sesiones...</p>
           ) : errorSesiones ? (
@@ -159,6 +173,17 @@ export default function PaseLista() {
                 </div>
               </div>
             </div>
+
+            {/* LECTOR QR: disponible únicamente durante la sesión */}
+            {puedeRegistrar && (
+              <LectorQRAsistencia
+              key={sesionId}
+              sesionId={sesionId}
+              onRegistrada={async () => {
+                setInscritos(await cargarInscritos(sesionId));
+              }}
+              />
+              )}
 
             {/* TABLA DE SOCIOS INSCRITOS */}
             <div className="pase-lista-panel">
