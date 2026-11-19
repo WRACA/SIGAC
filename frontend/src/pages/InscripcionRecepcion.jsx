@@ -140,6 +140,12 @@ export default function InscripcionRecepcion() {
 
   // Seleccionar un socio de las sugerencias
   function seleccionarSocio(socio) {
+    if (!socio.activo) {
+      setMensaje("No puedes inscribir a un socio con cuenta inactiva.");
+      setTipoMensaje("error");
+      return;
+    }
+
     ultimaBusqueda.current += 1;
     setCargandoSocios(false);
 
@@ -163,6 +169,12 @@ export default function InscripcionRecepcion() {
 
     if (!socioSeleccionado) {
       setMensaje("Debes seleccionar un socio de las sugerencias.");
+      setTipoMensaje("error");
+      return;
+    }
+
+    if (!socioSeleccionado.activo) {
+      setMensaje("No puedes registrar una inscripción para un socio inactivo.");
       setTipoMensaje("error");
       return;
     }
@@ -284,13 +296,19 @@ export default function InscripcionRecepcion() {
                         .join(" ");
                       return (
                         <button
-                          key={socio.id}
-                          type="button"
-                          className="sugerencia-socio"
-                          onClick={() => seleccionarSocio(socio)}
-                        >
+                        key={socio.id}
+                        type="button"
+                        className={`sugerencia-socio ${!socio.activo ? "socio-inactivo" : ""}`}
+                        onClick={() => seleccionarSocio(socio)}
+                        disabled={!socio.activo}
+                        > <span>
                           {nombre} — #{socio.numero_socio}
-                        </button>
+                          </span>
+
+                          <span className="estado-socio">
+                            {socio.activo ? "Activo" : "Inactivo"}
+                            </span>
+                            </button>
                       );
                     })
                   ) : (

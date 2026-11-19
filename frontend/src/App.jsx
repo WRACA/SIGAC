@@ -24,6 +24,7 @@ import HorariosSocio from "./pages/HorariosSocio.jsx";
 import AccesoDenegado from "./pages/AccesoDenegado.jsx";
 import MisActividades from "./pages/MisActividades.jsx";
 import MiHorario from "./pages/MiHorario.jsx";
+import SelectorSesionQR from "./pages/SelectorSesionQR.jsx";
 
 export default function App() {
   return (
@@ -66,6 +67,7 @@ export default function App() {
         <Route path="recepcion/socios" element={<SociosRecepcion />} />
         <Route path="recepcion/inscripciones" element={<InscripcionRecepcion />} />
         <Route path="recepcion/actividades" element={<SesionesRecepcion />} />
+        <Route path="recepcion/inscripcion-qr" element={<SelectorSesionQR />} />
         <Route path="recepcion/:seccion" element={<SeccionDashboardPorRol rol="recepcionista" />} />
         <Route path="recepcionista" element={<Navigate to="/recepcion" replace />} />
         <Route path="recepcionista/inscripciones" element={<Navigate to="/recepcion/inscripciones" replace />} />

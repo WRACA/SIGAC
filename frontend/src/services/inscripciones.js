@@ -57,3 +57,28 @@ export function registrarInscripcion(socioId, sesionId) {
     mensajeError: "Error al registrar la inscripción",
   });
 }
+
+/**
+ * Inscribe a un socio en una sesión a partir del contenido de su credencial QR.
+ * POST /api/recepcionista/sesiones/{sesion_id}/inscripciones/qr
+ * @param {number|string} sesionId - ID de la sesión seleccionada
+ * @param {string} contenido - Texto leído del QR (SIGAC:SOCIO:1:<UUID>)
+ * @returns {Promise<Object>} Inscripción creada, incluye `mensaje`
+ */
+export function inscribirPorQR(sesionId, contenido) {
+  return apiFetch(`/api/recepcionista/sesiones/${sesionId}/inscripciones/qr`, {
+    method: "POST",
+    body: { contenido },
+    mensajeError: "No se pudo inscribir al socio",
+  });
+}
+
+/**
+ * Obtiene los planes y precios disponibles para dar de alta socios.
+ * GET /api/recepcion/planes
+ */
+export function obtenerPlanes() {
+  return apiFetch(`${API_URL}/planes`, {
+    mensajeError: "Error al obtener los planes y precios",
+  });
+}

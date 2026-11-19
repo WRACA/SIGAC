@@ -1,15 +1,11 @@
 
 import { useEffect, useState } from "react";
 import DashboardLayout from "../components/DashboardLayout.jsx";
+import { menus } from "../components/menus.js";
 import { obtenerMisInscripciones } from "../services/socio.js";
 import "../assets/MisActividades.css";
 
-const opciones = [
-  { nombre: "Inicio", ruta: "/socio" },
-  { nombre: "Mis actividades", ruta: "/socio/actividades" },
-  { nombre: "Mi horario", ruta: "/socio/horarios" },
-  { nombre: "Mi perfil", ruta: "/socio/perfil" },
-];
+const { nombre: rol, opciones } = menus.socio;
 
 function formatearFecha(fecha) {
   if (!fecha) return "No disponible";
@@ -49,7 +45,7 @@ export default function MisActividades() {
   return (
     <DashboardLayout
       titulo="Mis actividades"
-      rol="Socio"
+      rol={rol}
       opciones={opciones}
     >
       <section className="mis-actividades">

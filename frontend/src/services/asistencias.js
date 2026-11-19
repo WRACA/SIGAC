@@ -41,12 +41,12 @@ export function registrarAsistencia(sesionId, socioId) {
 
 /**
  * Registra la asistencia mediante el escaneo de una credencial QR.
- * POST /api/coach/asistencia/qr
+ * POST /api/instructor/asistencia/qr
  * @param {number} sesionId
  * @param {string} contenido - Contenido leído del código QR.
  */
 export function registrarAsistenciaQR(sesionId, contenido) {
-  return apiFetch("/api/coach/asistencia/qr", {
+  return apiFetch("/api/instructor/asistencia/qr", {
     method: "POST",
     body: {
       sesion_id: Number(sesionId),

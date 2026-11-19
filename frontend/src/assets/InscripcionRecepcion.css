@@ -162,3 +162,31 @@
   color: #ff8a45;
   font-size: 14px;
 }
+
+/* Estado de los socios en las sugerencias */
+.sugerencia-socio {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.sugerencia-socio .estado-socio {
+  color: #4ade80;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.sugerencia-socio.socio-inactivo {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.sugerencia-socio.socio-inactivo .estado-socio {
+  color: #f87171;
+}
+
+.sugerencia-socio:disabled {
+  pointer-events: none;
+}
