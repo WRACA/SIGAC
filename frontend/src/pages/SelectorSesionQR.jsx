@@ -1,9 +1,11 @@
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FaChevronDown, FaChevronUp } from "react-icons/fa6";
 
 import DashboardLayout from "../components/DashboardLayout.jsx";
+import EscanerQR from "../components/EscanerQR.jsx";
 import { menus } from "../components/menus.js";
-import { obtenerSesiones } from "../services/inscripciones.js";
+import { inscribirPorQR, obtenerSesiones } from "../services/inscripciones.js";
 
 import "../assets/SelectorSesionQR.css";
 
@@ -29,6 +31,12 @@ export default function SelectorSesionQR() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [intento, setIntento] = useState(0);
+
+  // Estado del lector QR
+  const [panelAbierto, setPanelAbierto] = useState(false);
+  const [procesando, setProcesando] = useState(false);
+  const [resultado, setResultado] = useState(null); // { tipo: "exito" | "error", mensaje }
+  const procesandoRef = useRef(false);
 
   // Consulta las sesiones disponibles al cargar la pantalla
   useEffect(() => {
@@ -67,6 +75,55 @@ export default function SelectorSesionQR() {
     (sesion) => String(sesion.sesion_id) === sesionSeleccionada
   );
 
+  // La cámara está activa solo con el panel desplegado y sin resultado pendiente
+  const escaneando = panelAbierto && !procesando && !resultado;
+
+  // Cambiar de sesión colapsa el lector (apaga la cámara) y limpia el resultado
+  function cambiarSesion(valor) {
+    setSesionSeleccionada(valor);
+    setPanelAbierto(false);
+    setResultado(null);
+  }
+
+  // Desplegar enciende la cámara; colapsar la apaga (desmonta el escáner)
+  function alternarPanel() {
+    if (!sesionActual || procesando) return;
+
+    if (!panelAbierto) {
+      setResultado(null);
+    }
+    setPanelAbierto((abierto) => !abierto);
+  }
+
+  // Envía el contenido leído al endpoint de inscripción
+  const procesarLectura = useCallback(
+    async (contenido) => {
+      // Evita procesar una lectura mientras otra sigue en curso
+      if (procesandoRef.current || !sesionSeleccionada) return;
+
+      procesandoRef.current = true;
+      setProcesando(true);
+      setResultado(null);
+
+      try {
+        const respuesta = await inscribirPorQR(sesionSeleccionada, contenido);
+        setResultado({
+          tipo: "exito",
+          mensaje: respuesta?.mensaje || "Inscripción registrada correctamente",
+        });
+      } catch (err) {
+        setResultado({
+          tipo: "error",
+          mensaje: err.message || "No se pudo inscribir al socio",
+        });
+      } finally {
+        procesandoRef.current = false;
+        setProcesando(false);
+      }
+    },
+    [sesionSeleccionada]
+  );
+
   return (
     <DashboardLayout
       titulo="Inscripción QR"
@@ -74,6 +131,68 @@ export default function SelectorSesionQR() {
       opciones={opciones}
     >
       <div className="selector-qr-contenedor">
+        <section
+          className={`lector-qr-panel ${
+            sesionActual ? "lector-qr-habilitado" : "lector-qr-bloqueado"
+          }`}
+        >
+          <button
+            type="button"
+            className="lector-qr-encabezado"
+            onClick={alternarPanel}
+            disabled={!sesionActual || procesando}
+            aria-expanded={panelAbierto}
+            aria-controls="lector-qr-contenido"
+          >
+            <h3>Lector de código QR</h3>
+            {sesionActual &&
+              (panelAbierto ? <FaChevronUp /> : <FaChevronDown />)}
+          </button>
+
+          {!sesionActual ? (
+            <p>
+              Primero debes seleccionar una sesión para habilitar
+              el lector QR.
+            </p>
+          ) : !panelAbierto ? (
+            <p>
+              Despliega el lector para activar la cámara y escanear
+              la credencial del socio.
+            </p>
+          ) : (
+            <div id="lector-qr-contenido">
+              {escaneando && <EscanerQR onLectura={procesarLectura} />}
+
+              {procesando && (
+                <p className="lector-qr-procesando">
+                  Procesando inscripción...
+                </p>
+              )}
+
+              {resultado && (
+                <div
+                  className={`lector-qr-resultado lector-qr-resultado-${resultado.tipo}`}
+                  role="status"
+                >
+                  <strong>
+                    {resultado.tipo === "exito"
+                      ? "Socio inscrito"
+                      : "Inscripción rechazada"}
+                  </strong>
+                  <p>{resultado.mensaje}</p>
+
+                  <button
+                    type="button"
+                    onClick={() => setResultado(null)}
+                  >
+                    Escanear siguiente
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
         <h2>Inscripción mediante código QR</h2>
 
         <p className="selector-qr-descripcion">
@@ -109,7 +228,8 @@ export default function SelectorSesionQR() {
             <select
               id="sesion-qr"
               value={sesionSeleccionada}
-              onChange={(e) => setSesionSeleccionada(e.target.value)}
+              onChange={(e) => cambiarSesion(e.target.value)}
+              disabled={escaneando || procesando}
             >
               <option value="">Selecciona una sesión</option>
 
@@ -161,26 +281,6 @@ export default function SelectorSesionQR() {
             </p>
           </section>
         )}
-
-        <section
-          className={`lector-qr-panel ${
-            sesionActual ? "lector-qr-habilitado" : "lector-qr-bloqueado"
-          }`}
-        >
-          <h3>Lector de código QR</h3>
-
-          {!sesionActual ? (
-            <p>
-              Primero debes seleccionar una sesión para habilitar
-              el lector QR.
-            </p>
-          ) : (
-            <p>
-              Sesión seleccionada correctamente. El lector QR está
-              listo para integrarse con esta sesión.
-            </p>
-          )}
-        </section>
       </div>
     </DashboardLayout>
   );
