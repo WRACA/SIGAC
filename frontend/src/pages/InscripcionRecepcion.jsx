@@ -21,10 +21,13 @@ const etiquetaHora = (s) => formatearHorasPg(s.inicio, s.fin);
 
 export default function InscripcionRecepcion() {
   // Permite llegar con una búsqueda precargada (?q=...) desde la vista de socios
+  // o con una sesión preseleccionada (?sesionId=...&fecha=...) desde Actividades
   const [searchParams] = useSearchParams();
   const [busqueda, setBusqueda] = useState(() => searchParams.get("q") || "");
   const [socioSeleccionado, setSocioSeleccionado] = useState(null);
-  const [sesionSeleccionada, setSesionSeleccionada] = useState("");
+  const [sesionSeleccionada, setSesionSeleccionada] = useState(
+    () => searchParams.get("sesionId") || ""
+  );
   const [mostrarSugerencias, setMostrarSugerencias] = useState(
     () => Boolean(searchParams.get("q"))
   );
@@ -39,7 +42,15 @@ export default function InscripcionRecepcion() {
     cargarSesiones: obtenerSesiones,
     cargarClases: obtenerClasesRecepcion,
   });
-  const { sesiones, listo, recargar } = semana;
+  const { sesiones, listo, recargar, irAFecha } = semana;
+
+  // Si llega una sesión preseleccionada, carga la semana de su fecha
+  useEffect(() => {
+    const fecha = searchParams.get("fecha");
+    if (fecha) irAFecha(fecha);
+    // Solo al montar: la navegación posterior la controla el selector
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Estados de carga
   const [cargandoSocios, setCargandoSocios] = useState(false);

@@ -51,7 +51,7 @@ export default function CalendarioMensual({
       role="group"
       aria-labelledby={idEtiqueta}
     >
-      <div className="calendario-encabezado">
+      <div className="calendario-mensual-encabezado">
         <button
           type="button"
           onClick={() => moverMes(-1)}
@@ -60,15 +60,15 @@ export default function CalendarioMensual({
         >
           <FaChevronLeft />
         </button>
-        <span className="calendario-titulo">{titulo}</span>
+        <span className="calendario-mensual-titulo">{titulo}</span>
         <button type="button" onClick={() => moverMes(1)} aria-label="Mes siguiente">
           <FaChevronRight />
         </button>
       </div>
 
-      <div className="calendario-cuadricula">
+      <div className="calendario-mensual-cuadricula">
         {DIAS_SEMANA.map((dia) => (
-          <span key={dia} className="calendario-dia-semana">
+          <span key={dia} className="calendario-mensual-dia-semana">
             {dia}
           </span>
         ))}
@@ -82,7 +82,7 @@ export default function CalendarioMensual({
             deshabilitado || (minFecha && fecha < minFecha) || (cargada && !conSesion);
 
           const clases = [
-            "calendario-dia",
+            "calendario-mensual-dia",
             fecha === fechaSeleccionada && "seleccionado",
             fecha === hoy && "hoy",
             conSesion && "con-sesion",

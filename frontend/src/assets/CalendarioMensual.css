@@ -13,19 +13,19 @@
   opacity: 0.6;
 }
 
-.calendario-mensual .calendario-encabezado {
+.calendario-mensual .calendario-mensual-encabezado {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 10px;
 }
 
-.calendario-mensual .calendario-titulo {
+.calendario-mensual .calendario-mensual-titulo {
   font-weight: 700;
   text-transform: capitalize;
 }
 
-.calendario-mensual .calendario-encabezado button {
+.calendario-mensual .calendario-mensual-encabezado button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -40,34 +40,34 @@
   cursor: pointer;
 }
 
-.calendario-mensual .calendario-encabezado button:hover {
+.calendario-mensual .calendario-mensual-encabezado button:hover {
   background: transparent;
 }
 
-.calendario-mensual .calendario-encabezado button:hover:not(:disabled) {
+.calendario-mensual .calendario-mensual-encabezado button:hover:not(:disabled) {
   border-color: #f26d21;
 }
 
-.calendario-mensual .calendario-encabezado button:disabled {
+.calendario-mensual .calendario-mensual-encabezado button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.calendario-mensual .calendario-cuadricula {
+.calendario-mensual .calendario-mensual-cuadricula {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
   text-align: center;
 }
 
-.calendario-mensual .calendario-dia-semana {
+.calendario-mensual .calendario-mensual-dia-semana {
   padding: 4px 0;
   color: #b5b5b5;
   font-size: 12px;
   font-weight: 600;
 }
 
-.calendario-mensual .calendario-dia {
+.calendario-mensual .calendario-mensual-dia {
   position: relative;
   padding: 8px 0;
   color: #f2f2f2;
@@ -80,23 +80,23 @@
   cursor: pointer;
 }
 
-.calendario-mensual .calendario-dia:hover:not(:disabled) {
+.calendario-mensual .calendario-mensual-dia:hover:not(:disabled) {
   background: #303030;
 }
 
-.calendario-mensual .calendario-dia:disabled,
-.calendario-mensual .calendario-dia:disabled:hover {
+.calendario-mensual .calendario-mensual-dia:disabled,
+.calendario-mensual .calendario-mensual-dia:disabled:hover {
   color: #5a5a5a;
   background: transparent;
   cursor: not-allowed;
 }
 
-.calendario-mensual .calendario-dia.hoy {
+.calendario-mensual .calendario-mensual-dia.hoy {
   border-color: #5a5a5a;
 }
 
 /* Punto bajo los días con sesión de la clase elegida */
-.calendario-mensual .calendario-dia.con-sesion::after {
+.calendario-mensual .calendario-mensual-dia.con-sesion::after {
   content: "";
   position: absolute;
   bottom: 3px;
@@ -108,16 +108,16 @@
   transform: translateX(-50%);
 }
 
-.calendario-mensual .calendario-dia.seleccionado {
+.calendario-mensual .calendario-mensual-dia.seleccionado {
   color: #fff;
   background: #f26d21;
   border-color: #f26d21;
 }
 
-.calendario-mensual .calendario-dia.seleccionado::after {
+.calendario-mensual .calendario-mensual-dia.seleccionado::after {
   background: #fff;
 }
 
-.calendario-mensual .calendario-dia.seleccionado:hover {
+.calendario-mensual .calendario-mensual-dia.seleccionado:hover {
   background: #f26d21;
 }

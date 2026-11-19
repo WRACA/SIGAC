@@ -1,7 +1,7 @@
 import { Link, NavLink, useLocation } from "react-router-dom";
 import Boton from "./Boton.jsx";
 import { obtenerSesionActiva } from "../services/api.js";
-import { rutaPerfil } from "../services/auth.js";
+import { rutaPerfil, rutaPorRol } from "../services/auth.js";
 
 const enlaces = [
   { to: "/", label: "Inicio", end: true },
@@ -15,7 +15,9 @@ export default function Navbar() {
   // useLocation fuerza a reevaluar la sesión en cada navegación
   useLocation();
   const sesion = obtenerSesionActiva();
+  // El socio va a su perfil; instructor y recepción, a su panel
   const perfil = sesion ? rutaPerfil(sesion.rol) : null;
+  const panel = sesion && !perfil ? rutaPorRol(sesion.rol) : null;
 
   return (
     <nav className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-6 px-[6%] py-[22px] max-[900px]:flex-wrap">
@@ -39,8 +41,10 @@ export default function Navbar() {
         ))}
       </ul>
 
-      {sesion && perfil ? (
+      {perfil ? (
         <Boton to={perfil} variante="oscuro">Mi perfil</Boton>
+      ) : panel ? (
+        <Boton to={panel} variante="oscuro">Mi panel</Boton>
       ) : (
         <Boton to="/login" variante="oscuro">Iniciar sesión</Boton>
       )}

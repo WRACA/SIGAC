@@ -1,8 +1,10 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout.jsx";
 import { menus } from "../components/menus.js";
 import { obtenerMisInscripciones } from "../services/socio.js";
+import { parsearFechaPg } from "../utils/formato.js";
 import "../assets/MisActividades.css";
 
 const { nombre: rol, opciones } = menus.socio;
@@ -42,6 +44,16 @@ export default function MisActividades() {
     cargarInscripciones();
   }, []);
 
+  // Solo las próximas: inscripciones pendientes cuya sesión aún no termina
+  // (incluye las que están en curso), de la más cercana a la más lejana.
+  // El historial completo está en "Mis inscripciones".
+  const proximas = useMemo(() => {
+    const ahora = new Date();
+    return (Array.isArray(inscripciones) ? inscripciones : [])
+      .filter((i) => i.estado === "inscrito" && parsearFechaPg(i.fin) > ahora)
+      .sort((a, b) => parsearFechaPg(a.inicio) - parsearFechaPg(b.inicio));
+  }, [inscripciones]);
+
   return (
     <DashboardLayout
       titulo="Mis actividades"
@@ -54,7 +66,8 @@ export default function MisActividades() {
             ESPACIO PERSONAL
           </span>
           <p>
-            Consulta las actividades y sesiones en las que estás inscrito.
+            Consulta tus próximas actividades y sesiones. Tu historial
+            completo está en <Link to="/socio/inscripciones">Mis inscripciones</Link>.
           </p>
         </div>
 
@@ -71,19 +84,21 @@ export default function MisActividades() {
           </div>
         )}
 
-        {!cargando && !error && inscripciones.length === 0 && (
+        {!cargando && !error && proximas.length === 0 && (
           <div className="mis-actividades-estado">
-            <h3>Aún no tienes actividades inscritas</h3>
+            <h3>No tienes actividades próximas</h3>
             <p>
               Cuando realices una inscripción, aparecerá aquí la
-              información de tu actividad.
+              información de tu actividad. Puedes revisar tus sesiones
+              anteriores en{" "}
+              <Link to="/socio/inscripciones">Mis inscripciones</Link>.
             </p>
           </div>
         )}
 
-        {!cargando && !error && inscripciones.length > 0 && (
+        {!cargando && !error && proximas.length > 0 && (
           <div className="mis-actividades-lista">
-            {inscripciones.map((inscripcion) => (
+            {proximas.map((inscripcion) => (
               <article
                 className="mis-actividad-card"
                 key={inscripcion.id}

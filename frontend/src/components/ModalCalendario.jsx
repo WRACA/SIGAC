@@ -20,7 +20,7 @@ export default function ModalCalendario({ titulo, onCerrar, children }) {
     document.body.style.overflow = "hidden";
 
     const caja = cajaRef.current;
-    (caja?.querySelector(".calendario-dia.seleccionado") || caja)?.focus();
+    (caja?.querySelector(".calendario-mensual-dia.seleccionado") || caja)?.focus();
 
     return () => {
       document.removeEventListener("keydown", alPresionar);

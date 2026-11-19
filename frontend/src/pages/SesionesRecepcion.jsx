@@ -110,7 +110,10 @@ export default function SesionesRecepcion() {
                         </span>
                       </td>
                       <td>
-                        <Link to="/recepcion/inscripciones" className="dashboard-enlace-boton">
+                        <Link
+                          to={`/recepcion/inscripciones?sesionId=${s.sesion_id}&fecha=${s.fecha}`}
+                          className="dashboard-enlace-boton"
+                        >
                           Inscribir
                         </Link>
                       </td>
