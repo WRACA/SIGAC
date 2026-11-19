@@ -39,7 +39,7 @@ function mostrarEstado(estado) {
   const estados = {
     programada: "Programada",
     en_curso: "En curso",
-    finalizada: "Finalizada",
+    realizada: "Realizada",
     cancelada: "Cancelada",
   };
 
