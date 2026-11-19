@@ -21,6 +21,7 @@ use handlers::instructor::consultar_detalle_sesion;
 use handlers::instructor::registrar_asistencia;
 use handlers::instructor::consultar_inscritos;
 use handlers::socio::obtener_inscripciones;
+use handlers::inscripcion_qr::inscribir_socio_por_qr;
 
 
 #[derive(Clone)]
@@ -96,6 +97,8 @@ async fn main() {
     .route("/api/instructor/sesiones/{id}", get(consultar_detalle_sesion))
     .route("/api/instructor/sesiones/{id}/inscritos", get(consultar_inscritos))
     .route("/api/instructor/asistencia", patch(registrar_asistencia))
+    .route("/api/recepcionista/sesiones/{sesion_id}/inscripciones/qr",post(inscribir_socio_por_qr),
+    )
     .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
