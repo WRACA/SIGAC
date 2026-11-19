@@ -227,3 +227,10 @@
     white-space: nowrap;
   }
 }
+
+/* Hora en que se registró la asistencia, junto a la etiqueta */
+.pase-lista-hora-asistencia {
+  margin-left: 8px;
+  color: #b5b5b5;
+  font-size: 12px;
+}

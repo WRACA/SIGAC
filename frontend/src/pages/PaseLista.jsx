@@ -5,13 +5,21 @@ import { menus } from "../components/menus.js";
 import { obtenerInscritos, registrarAsistencia } from "../services/asistencias.js";
 import { useSesionesInstructorSemana } from "../hooks/useSesionesInstructorSemana.js";
 import SelectorSesion from "../components/SelectorSesion.jsx";
-import { formatearFecha, formatearHora, rangoHoras } from "../utils/formato.js";
+import {
+  ESTADO_INSCRIPCION,
+  formatearFecha,
+  formatearHora,
+  rangoHoras,
+} from "../utils/formato.js";
 import "../assets/PaseLista.css";
 import LectorQRAsistencia from "../components/LectorQRAsistencia.jsx";
 
 const { nombre: rol, opciones } = menus.instructor;
 
 const etiquetaHora = (s) => rangoHoras(s.hora_inicio, s.hora_fin);
+
+// Color de la etiqueta de asistencia según el estado de la inscripción
+const CLASE_ESTADO = { asistio: "ok", inscrito: "aviso", falta: "error" };
 
 // Indicador del momento de la sesión
 const ESTADO_SESION = {
@@ -115,13 +123,16 @@ const sesionId = tieneSesionEnUrl
     : ESTADO_SESION[sesion?.estado_tiempo] || ESTADO_SESION.proxima;
 
   return (
-    <DashboardLayout titulo="Pase de lista" rol={rol} opciones={opciones}>
+    <DashboardLayout titulo="Asistencia" rol={rol} opciones={opciones}>
       <section className="pase-lista">
         <div className="pase-lista-encabezado">
           <div>
             <span className="pase-lista-etiqueta">PANEL DE INSTRUCTOR</span>
-            <h2>Registro de asistencia</h2>
-            <p>Marca la asistencia de los socios inscritos en tu clase en curso.</p>
+            <h2>Asistencia de tus sesiones</h2>
+            <p>
+              Consulta los socios inscritos en tus sesiones y marca su asistencia
+              durante la clase en curso.
+            </p>
           </div>
         </div>
 
@@ -240,14 +251,15 @@ const sesionId = tieneSesionEnUrl
                             <td>{socio.nombre}</td>
                             <td>
                               <span
-                                className={registrada ? "asistencia-ok" : "asistencia-pendiente"}
+                                className={`dashboard-badge ${CLASE_ESTADO[socio.estado] || ""}`}
                               >
-                                {registrada
-                                  ? `Registrada ${socio.fecha_asistencia?.slice(11, 16) || ""}`
-                                  : procesada
-                                  ? "Falta"
-                                  : "Pendiente"}
+                                {ESTADO_INSCRIPCION[socio.estado] || socio.estado}
                               </span>
+                              {registrada && socio.fecha_asistencia && (
+                                <span className="pase-lista-hora-asistencia">
+                                  {socio.fecha_asistencia.slice(11, 16)}
+                                </span>
+                              )}
                             </td>
                             <td>
                               <button

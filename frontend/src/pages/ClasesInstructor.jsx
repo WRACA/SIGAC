@@ -429,33 +429,22 @@ export default function ClasesInstructor() {
                       Ver detalles
                     </button>
 
-                    {esEnCurso ? (
-                      <button
-                        type="button"
-                        className="clase-btn-asistencia btn-en-curso"
-                        title="Ir directamente al pase de lista de esta clase activa"
-                        onClick={() =>
-                          navigate(
-                            `/instructor/asistencia?sesionId=${clase.sesion_id}`
-                          )
-                        }
-                      >
-                        Pase de lista
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="clase-btn-asistencia"
-                        title="Ver socios inscritos"
-                        onClick={() =>
-                          navigate(
-                            `/instructor/alumnos?sesionId=${clase.sesion_id}`
-                          )
-                        }
-                      >
-                        Inscritos
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className={`clase-btn-asistencia ${esEnCurso ? "btn-en-curso" : ""}`}
+                      title={
+                        esEnCurso
+                          ? "Marcar la asistencia de esta clase activa"
+                          : "Consultar los socios inscritos y su asistencia"
+                      }
+                      onClick={() =>
+                        navigate(
+                          `/instructor/asistencia?sesionId=${clase.sesion_id}`
+                        )
+                      }
+                    >
+                      Asistencia
+                    </button>
                   </div>
                 </article>
               );
@@ -654,33 +643,20 @@ export default function ClasesInstructor() {
                   Cerrar
                 </button>
 
-                {claseSeleccionada.estado_tiempo === "en_curso" ? (
-                  <button
-                    type="button"
-                    className="clase-btn-asistencia btn-en-curso"
-                    onClick={() => {
-                      cerrarDetalles();
-                      navigate(
-                        `/instructor/asistencia?sesionId=${claseSeleccionada.sesion_id}`
-                      );
-                    }}
-                  >
-                    Ir al pase de lista
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="clase-btn-asistencia"
-                    onClick={() => {
-                      cerrarDetalles();
-                      navigate(
-                        `/instructor/alumnos?sesionId=${claseSeleccionada.sesion_id}`
-                      );
-                    }}
-                  >
-                    Ver en control de alumnos
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className={`clase-btn-asistencia ${
+                    claseSeleccionada.estado_tiempo === "en_curso" ? "btn-en-curso" : ""
+                  }`}
+                  onClick={() => {
+                    cerrarDetalles();
+                    navigate(
+                      `/instructor/asistencia?sesionId=${claseSeleccionada.sesion_id}`
+                    );
+                  }}
+                >
+                  Asistencia
+                </button>
               </div>
             </div>
           </div>

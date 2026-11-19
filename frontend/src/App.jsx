@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useParams } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
 import Inicio from "./pages/Inicio.jsx";
 import Deportes from "./pages/Deportes.jsx";
@@ -13,7 +13,6 @@ import Recepcionista from "./pages/Recepcionista.jsx";
 import Socio from "./pages/Socio.jsx";
 import Instructor from "./pages/Instructor.jsx";
 import ClasesInstructor from "./pages/ClasesInstructor.jsx";
-import SociosInscritos from "./pages/SociosInscritos.jsx";
 import PaseLista from "./pages/PaseLista.jsx";
 import InscripcionRecepcion from "./pages/InscripcionRecepcion.jsx";
 import SociosRecepcion from "./pages/SociosRecepcion.jsx";
@@ -25,6 +24,12 @@ import MisActividades from "./pages/MisActividades.jsx";
 import MiHorario from "./pages/MiHorario.jsx";
 import MisInscripciones from "./pages/MisInscripciones.jsx";
 import HorariosInstructor from "./pages/HorariosInstructor.jsx";
+
+// Redirige conservando los parámetros de la URL (p. ej. ?sesionId=)
+function RedirigirConParametros({ a }) {
+  const { search } = useLocation();
+  return <Navigate to={`${a}${search}`} replace />;
+}
 
 // /recepcionista/<seccion> → /recepcion/<seccion>
 function RedirigirRecepcion() {
@@ -63,7 +68,7 @@ export default function App() {
       <Route element={<ProtectedRoute rolesPermitidos={['coach']} />}>
         <Route path="instructor" element={<Instructor />} />
         <Route path="instructor/clases" element={<ClasesInstructor />} />
-        <Route path="instructor/alumnos" element={<SociosInscritos />} />
+        <Route path="instructor/alumnos" element={<RedirigirConParametros a="/instructor/asistencia" />} />
         <Route path="instructor/asistencia" element={<PaseLista />} />
         <Route path="instructor/horarios" element={<HorariosInstructor />} />
         <Route path="instructor/:seccion" element={<Navigate to="/instructor" replace />} />

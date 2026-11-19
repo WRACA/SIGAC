@@ -26,8 +26,7 @@ export const menus = {
     opciones: [
       { nombre: "Inicio", ruta: "/instructor" },
       { nombre: "Mis clases", ruta: "/instructor/clases" },
-      { nombre: "Pase de lista", ruta: "/instructor/asistencia" },
-      { nombre: "Mis alumnos", ruta: "/instructor/alumnos" },
+      { nombre: "Asistencia", ruta: "/instructor/asistencia" },
       { nombre: "Mis horarios", ruta: "/instructor/horarios" },
     ],
   },

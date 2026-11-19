@@ -69,7 +69,7 @@ export default function Instructor() {
                   className="dashboard-enlace-boton"
                   style={{ marginTop: 12 }}
                 >
-                  Pasar lista
+                  Asistencia
                 </Link>
               </>
             ) : (
