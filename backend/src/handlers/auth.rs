@@ -42,7 +42,10 @@ pub async fn register(
         .get(header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok())
         .and_then(|h| h.strip_prefix("Bearer "))
-        .ok_or((StatusCode::UNAUTHORIZED, "Token requerido".to_string()))?;
+        .ok_or((
+            StatusCode::UNAUTHORIZED,
+            "Token requerido".to_string(),
+        ))?;
 
     let secret = std::env::var("JWT_SECRET").map_err(|_| (
         StatusCode::INTERNAL_SERVER_ERROR,
@@ -54,7 +57,10 @@ pub async fn register(
         &DecodingKey::from_secret(secret.as_bytes()),
         &Validation::new(Algorithm::HS256),
     )
-    .map_err(|_| (StatusCode::UNAUTHORIZED, "Token inválido o expirado".to_string()))?;
+    .map_err(|_| (
+        StatusCode::UNAUTHORIZED,
+        "Token inválido o expirado".to_string(),
+    ))?;
 
     // Comprobar que sea un recepcionista o administrador activo
     let autorizado = sqlx::query_scalar::<_, bool>(
@@ -79,16 +85,32 @@ pub async fn register(
         ));
     }
 
+    // Validar datos personales
     let correo = body.correo.trim().to_lowercase();
     let nombre = body.nombre.trim().to_string();
     let apellido_p = body.apellido_p.trim().to_string();
 
     if !correo.contains('@') || correo.len() > 150 {
-        return Err((StatusCode::BAD_REQUEST, "Correo inválido.".to_string()));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Correo inválido".to_string(),
+        ));
     }
+
     if nombre.is_empty() || nombre.len() > 150 {
-        return Err((StatusCode::BAD_REQUEST, "Nombre inválido".to_string()));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Nombre inválido".to_string(),
+        ));
     }
+
+    if apellido_p.is_empty() || apellido_p.len() > 150 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Apellido paterno inválido".to_string(),
+        ));
+    }
+
     if body.password.len() < 8 || body.password.len() > 72 {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -96,51 +118,215 @@ pub async fn register(
         ));
     }
 
-    let existe = sqlx::query_scalar::<_, i32>("SELECT 1 FROM usuario WHERE correo = $1")
-        .bind(&correo)
-        .fetch_optional(db)
-        .await
-        .map_err(error_interno)?;
-
-    if existe.is_some() {
-        return Err((StatusCode::CONFLICT, "Ese correo ya está registrado".to_string()));
+    // Validar periodicidad
+    if !["mensual", "semestral", "anual"].contains(&body.periodicidad.as_str()) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Periodicidad inválida".to_string(),
+        ));
     }
 
-    let hash = bcrypt::hash(&body.password, bcrypt::DEFAULT_COST).map_err(|_| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Error al procesar la contraseña".to_string(),
-        )
-    })?;
+    // Validar método de pago
+    if !["efectivo", "tarjeta", "transferencia", "otro"]
+        .contains(&body.metodo_pago.as_str())
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Método de pago inválido".to_string(),
+        ));
+    }
 
+    // No permitir el registro sin confirmar el pago
+    if !body.confirmar_pago {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Debes confirmar que recibiste el pago".to_string(),
+        ));
+    }
+
+    let existe = sqlx::query_scalar::<_, i32>(
+        "SELECT 1 FROM usuario WHERE correo = $1"
+    )
+    .bind(&correo)
+    .fetch_optional(db)
+    .await
+    .map_err(error_interno)?;
+
+    if existe.is_some() {
+        return Err((
+            StatusCode::CONFLICT,
+            "Ese correo ya está registrado".to_string(),
+        ));
+    }
+
+    let hash = bcrypt::hash(
+        &body.password,
+        bcrypt::DEFAULT_COST,
+    )
+    .map_err(|_| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "Error al procesar la contraseña".to_string(),
+    ))?;
+
+    // Iniciar transacción
+    let mut tx = db.begin().await.map_err(error_interno)?;
+
+    // Verificar que el plan y su precio estén activos
+    let precio_valido = sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM plan_membresia pm
+            JOIN plan_precio pp ON pp.plan_id = pm.id
+            WHERE pm.id = $1
+              AND pm.nivel IN (1, 2)
+              AND pm.activo = TRUE
+              AND pp.periodicidad = $2::periodicidad
+              AND pp.activo = TRUE
+              AND pp.precio > 0
+        )
+        "#,
+    )
+    .bind(body.plan_id)
+    .bind(&body.periodicidad)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(error_interno)?;
+
+    if !precio_valido {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "El plan o el precio seleccionado no está disponible".to_string(),
+        ));
+    }
+
+    // Crear usuario
     let usuario = sqlx::query_as::<_, Usuario>(
         r#"
-        WITH nuevo_usuario AS (
-            INSERT INTO usuario (nombre, apellido_p, correo, password_hash, rol)
-            VALUES ($1, $2, $3, $4, $5::rol_usuario)
-            RETURNING id, nombre, correo, rol
-        ),
-        nuevo_socio AS (
-            INSERT INTO socio (usuario_id)
-            SELECT id FROM nuevo_usuario
-            RETURNING id
-        ),
-        -- SIG-95: credencial QR con token UUID aleatorio (DEFAULT gen_random_uuid())
-        nueva_credencial AS (
-            INSERT INTO credencial_qr (socio_id)
-            SELECT id FROM nuevo_socio
+        INSERT INTO usuario (
+            nombre, apellido_p, correo, password_hash, rol
         )
-        SELECT id, nombre, correo, rol::text FROM nuevo_usuario
-        "#
+        VALUES ($1, $2, $3, $4, $5::rol_usuario)
+        RETURNING id, nombre, correo, rol::text
+        "#,
     )
     .bind(&nombre)
     .bind(&apellido_p)
     .bind(&correo)
     .bind(&hash)
     .bind(ROL_POR_DEFECTO)
-    .fetch_one(db)
+    .fetch_one(&mut *tx)
     .await
     .map_err(error_interno)?;
+
+    // Crear socio
+    let socio_id = sqlx::query_scalar::<_, i32>(
+        r#"
+        INSERT INTO socio (usuario_id)
+        VALUES ($1)
+        RETURNING id
+        "#,
+    )
+    .bind(usuario.id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(error_interno)?;
+
+    // Crear credencial QR
+    sqlx::query(
+        r#"
+        INSERT INTO credencial_qr (socio_id)
+        VALUES ($1)
+        "#,
+    )
+    .bind(socio_id)
+    .execute(&mut *tx)
+    .await
+    .map_err(error_interno)?;
+
+    // Crear membresía con duración de calendario
+    let membresia_id = sqlx::query_scalar::<_, i32>(
+        r#"
+        INSERT INTO membresia (
+            socio_id,
+            plan_id,
+            periodicidad,
+            fecha_inicio,
+            fecha_fin,
+            estado
+        )
+        SELECT
+            $1,
+            pm.id,
+            pp.periodicidad,
+            fecha.inicio,
+            (
+                fecha.inicio +
+                CASE pp.periodicidad
+                    WHEN 'mensual' THEN interval '1 month'
+                    WHEN 'semestral' THEN interval '6 months'
+                    WHEN 'anual' THEN interval '1 year'
+                END
+            )::date,
+            'activa'
+        FROM plan_membresia pm
+        JOIN plan_precio pp ON pp.plan_id = pm.id
+        CROSS JOIN (
+            SELECT (
+                now() AT TIME ZONE 'America/Mexico_City'
+            )::date AS inicio
+        ) fecha
+        WHERE pm.id = $2
+          AND pp.periodicidad = $3::periodicidad
+          AND pm.activo = TRUE
+          AND pp.activo = TRUE
+        RETURNING id
+        "#,
+    )
+    .bind(socio_id)
+    .bind(body.plan_id)
+    .bind(&body.periodicidad)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(error_interno)?;
+
+    // Registrar pago con el precio oficial de la base de datos
+    sqlx::query(
+        r#"
+        INSERT INTO pago (
+            socio_id,
+            concepto,
+            membresia_id,
+            monto,
+            metodo,
+            estado,
+            registrado_por
+        )
+        SELECT
+            $1,
+            'membresia',
+            m.id,
+            pp.precio,
+            $3::metodo_pago,
+            'pagado',
+            $4
+        FROM membresia m
+        JOIN plan_precio pp
+          ON pp.plan_id = m.plan_id
+         AND pp.periodicidad = m.periodicidad
+        WHERE m.id = $2
+        "#,
+    )
+    .bind(socio_id)
+    .bind(membresia_id)
+    .bind(&body.metodo_pago)
+    .bind(datos.claims.id)
+    .execute(&mut *tx)
+    .await
+    .map_err(error_interno)?;
+
+    // Confirmar todos los registros
+    tx.commit().await.map_err(error_interno)?;
 
     Ok((StatusCode::CREATED, Json(usuario)))
 }

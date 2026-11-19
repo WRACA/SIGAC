@@ -12,6 +12,8 @@ use handlers::actividades::listar_actividades;
 use handlers::recepcion::buscar_socios;
 use handlers::recepcion::actividades_inscripcion;
 use handlers::recepcion::registrar_inscripcion;
+use handlers::recepcion::dashboard_recepcion;
+use handlers::recepcion::listar_planes;
 use handlers::perfil::obtener_perfil;
 use handlers::credencial::obtener_credencial_qr;
 use handlers::instructor::consultar_sesiones;
@@ -20,6 +22,7 @@ use handlers::instructor::registrar_asistencia;
 use handlers::instructor::consultar_inscritos;
 use handlers::socio::obtener_inscripciones;
 use handlers::inscripcion_qr::inscribir_socio_por_qr;
+
 
 #[derive(Clone)]
 pub struct AppState {
@@ -85,6 +88,8 @@ async fn main() {
     .route("/api/recepcion/socios", get(buscar_socios))
     .route("/api/recepcion/actividades", get(actividades_inscripcion))
     .route("/api/recepcion/inscripciones", post(registrar_inscripcion))
+    .route("/api/recepcion/dashboard", get(dashboard_recepcion))
+    .route("/api/recepcion/planes", get(listar_planes))
     .route("/api/socio/perfil", get(obtener_perfil))
     .route("/api/socio/credencial-qr", get(obtener_credencial_qr))
     .route("/api/socio/inscripciones", get(obtener_inscripciones))

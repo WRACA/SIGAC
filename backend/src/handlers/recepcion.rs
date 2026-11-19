@@ -10,7 +10,15 @@ use crate::{
     AppState,
     errors::{error_interno, ApiError},
     handlers::auth::Claims,
-    models::{BuscarSociosQuery, SocioBusqueda,ActividadInscripcion},
+    models::{
+    BuscarSociosQuery,
+    SocioBusqueda,
+    ActividadInscripcion,
+    ResumenRecepcion,
+    SesionRecepcion,
+    DashboardRecepcion,
+},
+
 };
 
 
@@ -91,19 +99,19 @@ pub async fn buscar_socios(
             s.numero_socio,
             u.nombre,
             u.apellido_p,
-            u.apellido_m
+            u.apellido_m,
+            u.correo,
+            u.activo
         FROM socio s
         JOIN usuario u ON s.usuario_id = u.id
-        WHERE u.activo = TRUE
-          AND (
-              s.numero_socio::text = $1
-              OR CONCAT_WS(
-                  ' ',
-                  u.nombre,
-                  u.apellido_p,
-                  u.apellido_m
-              ) ILIKE '%' || $1 || '%'
-          )
+        WHERE
+            s.numero_socio::text = $1
+            OR CONCAT_WS(
+                ' ',
+                u.nombre,
+                u.apellido_p,
+                u.apellido_m
+            ) ILIKE '%' || $1 || '%'
         ORDER BY u.nombre, u.apellido_p
         LIMIT 20
         "#,
@@ -212,7 +220,7 @@ pub async fn actividades_inscripcion(
     Ok(Json(actividades))
 }
 
-use crate::models::{InscripcionRequest, InscripcionResponse};
+use crate::models::{InscripcionRequest, InscripcionResponse,PlanRecepcion};
 
 // Modelo interno para consultar la sesión
 #[derive(sqlx::FromRow)]
@@ -482,4 +490,301 @@ pub async fn registrar_inscripcion(
             mensaje: "Inscripción registrada correctamente".to_string(),
         }),
     ))
+}
+
+// GET /api/recepcion/dashboard
+pub async fn dashboard_recepcion(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<DashboardRecepcion>, ApiError> {
+
+    // 1. Obtener y validar el token
+    let token = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .ok_or((
+            StatusCode::UNAUTHORIZED,
+            "Token requerido".to_string(),
+        ))?;
+
+    let secret = std::env::var("JWT_SECRET")
+        .map_err(|_| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Error de configuración".to_string(),
+        ))?;
+
+    let datos = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::new(Algorithm::HS256),
+    )
+    .map_err(|_| (
+        StatusCode::UNAUTHORIZED,
+        "Token inválido o expirado".to_string(),
+    ))?;
+
+    // 2. Verificar permisos
+    let autorizado = sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM usuario
+            WHERE id = $1
+              AND rol IN ('recepcionista', 'administrador')
+              AND activo = TRUE
+        )
+        "#,
+    )
+    .bind(datos.claims.id)
+    .fetch_one(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    if !autorizado {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "No tienes permisos para consultar el dashboard".to_string(),
+        ));
+    }
+
+    // 3. Obtener los indicadores generales
+    let resumen = sqlx::query_as::<_, ResumenRecepcion>(
+        r#"
+        SELECT
+            (SELECT COUNT(*) FROM socio)::bigint AS total_socios,
+
+            (
+                SELECT COUNT(*)
+                FROM socio s
+                JOIN usuario u ON s.usuario_id = u.id
+                WHERE u.activo = TRUE
+                  AND u.rol::text = 'socio'
+            )::bigint AS socios_activos,
+
+            (
+                SELECT COUNT(*)
+                FROM inscripcion i
+                WHERE i.fecha_inscripcion >= (
+                    date_trunc(
+                        'day',
+                        NOW() AT TIME ZONE 'America/Mexico_City'
+                    ) AT TIME ZONE 'America/Mexico_City'
+                )
+                AND i.fecha_inscripcion < (
+                    (
+                        date_trunc(
+                            'day',
+                            NOW() AT TIME ZONE 'America/Mexico_City'
+                        ) + INTERVAL '1 day'
+                    ) AT TIME ZONE 'America/Mexico_City'
+                )
+            )::bigint AS inscripciones_hoy,
+
+            (
+                SELECT COUNT(*)
+                FROM sesion s
+                WHERE (s.inicio AT TIME ZONE 'America/Mexico_City')::date =
+                      (NOW() AT TIME ZONE 'America/Mexico_City')::date
+            )::bigint AS sesiones_hoy
+        "#,
+    )
+    .fetch_one(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    // 4. Obtener las actividades de hoy
+    let actividades_hoy = sqlx::query_as::<_, SesionRecepcion>(
+        r#"
+        SELECT
+            s.id AS sesion_id,
+            a.nombre AS actividad,
+            s.inicio::text AS inicio,
+            s.fin::text AS fin,
+            CONCAT_WS(
+                ' ',
+                u.nombre,
+                u.apellido_p,
+                u.apellido_m
+            ) AS coach,
+            s.lugar,
+            s.cupo,
+
+            COUNT(i.id) FILTER (
+                WHERE i.estado IN ('inscrito', 'asistio')
+            )::bigint AS total_inscritos,
+
+            GREATEST(
+                s.cupo::bigint - COUNT(i.id) FILTER (
+                    WHERE i.estado IN ('inscrito', 'asistio')
+                ),
+                0
+            )::bigint AS cupos_disponibles,
+
+            s.estado::text AS estado
+
+        FROM sesion s
+        JOIN actividad a ON s.actividad_id = a.id
+        JOIN coach c ON s.coach_id = c.id
+        JOIN usuario u ON c.usuario_id = u.id
+        LEFT JOIN inscripcion i ON s.id = i.sesion_id
+
+        WHERE
+            (s.inicio AT TIME ZONE 'America/Mexico_City')::date =
+            (NOW() AT TIME ZONE 'America/Mexico_City')::date
+            AND a.eliminado_en IS NULL
+
+        GROUP BY
+            s.id,
+            a.nombre,
+            u.nombre,
+            u.apellido_p,
+            u.apellido_m
+
+        ORDER BY s.inicio
+        "#,
+    )
+    .fetch_all(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    // 5. Obtener las próximas cinco actividades
+    let proximas_actividades = sqlx::query_as::<_, SesionRecepcion>(
+        r#"
+        SELECT
+            s.id AS sesion_id,
+            a.nombre AS actividad,
+            s.inicio::text AS inicio,
+            s.fin::text AS fin,
+            CONCAT_WS(
+                ' ',
+                u.nombre,
+                u.apellido_p,
+                u.apellido_m
+            ) AS coach,
+            s.lugar,
+            s.cupo,
+
+            COUNT(i.id) FILTER (
+                WHERE i.estado IN ('inscrito', 'asistio')
+            )::bigint AS total_inscritos,
+
+            GREATEST(
+                s.cupo::bigint - COUNT(i.id) FILTER (
+                    WHERE i.estado IN ('inscrito', 'asistio')
+                ),
+                0
+            )::bigint AS cupos_disponibles,
+
+            s.estado::text AS estado
+
+        FROM sesion s
+        JOIN actividad a ON s.actividad_id = a.id
+        JOIN coach c ON s.coach_id = c.id
+        JOIN usuario u ON c.usuario_id = u.id
+        LEFT JOIN inscripcion i ON s.id = i.sesion_id
+
+        WHERE
+            s.inicio > NOW()
+            AND s.estado = 'programada'
+            AND a.eliminado_en IS NULL
+
+        GROUP BY
+            s.id,
+            a.nombre,
+            u.nombre,
+            u.apellido_p,
+            u.apellido_m
+
+        ORDER BY s.inicio
+        LIMIT 5
+        "#,
+    )
+    .fetch_all(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    // 6. Devolver toda la información
+    Ok(Json(DashboardRecepcion {
+        resumen,
+        actividades_hoy,
+        proximas_actividades,
+    }))
+}
+
+// GET /api/recepcion/planes
+pub async fn listar_planes(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<PlanRecepcion>>, ApiError> {
+    let token = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .ok_or((
+            StatusCode::UNAUTHORIZED,
+            "Token requerido".to_string(),
+        ))?;
+
+    let secret = std::env::var("JWT_SECRET").map_err(|_| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "Error de configuración".to_string(),
+    ))?;
+
+    let datos = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::new(Algorithm::HS256),
+    )
+    .map_err(|_| (
+        StatusCode::UNAUTHORIZED,
+        "Token inválido o expirado".to_string(),
+    ))?;
+
+    let autorizado = sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM usuario
+            WHERE id = $1
+              AND rol IN ('recepcionista', 'administrador')
+              AND activo = TRUE
+        )
+        "#,
+    )
+    .bind(datos.claims.id)
+    .fetch_one(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    if !autorizado {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "No tienes permisos para consultar los planes".to_string(),
+        ));
+    }
+
+    let planes = sqlx::query_as::<_, PlanRecepcion>(
+        r#"
+        SELECT
+            pm.id,
+            pm.nombre,
+            pm.nivel,
+            pm.descripcion,
+            pm.beneficios,
+            pp.periodicidad::text AS periodicidad,
+            pp.precio::float8 AS precio
+        FROM plan_membresia pm
+        JOIN plan_precio pp ON pp.plan_id = pm.id
+        WHERE pm.activo = TRUE
+          AND pp.activo = TRUE
+          AND pm.nivel IN (1, 2)
+        ORDER BY pm.nivel, pp.precio
+        "#,
+    )
+    .fetch_all(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    Ok(Json(planes))
 }

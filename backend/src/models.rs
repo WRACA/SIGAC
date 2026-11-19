@@ -7,6 +7,10 @@ pub struct RegisterRequest {
     pub apellido_p: String,
     pub correo: String,
     pub password: String,
+    pub plan_id: i32,
+    pub periodicidad: String,
+    pub metodo_pago: String,
+    pub confirmar_pago: bool,
 }
 
 #[derive(Deserialize)]
@@ -60,6 +64,8 @@ pub struct SocioBusqueda {
     pub nombre: String,
     pub apellido_p: String,
     pub apellido_m: Option<String>,
+    pub correo: String,
+    pub activo: bool,
 }
 
 #[derive(serde::Serialize, sqlx::FromRow)]
@@ -184,6 +190,48 @@ pub struct InscripcionSocio {
     pub fecha_asistencia: Option<String>,
 }
 
+// Resumen general del panel de recepción
+#[derive(serde::Serialize, sqlx::FromRow)]
+pub struct ResumenRecepcion {
+    pub total_socios: i64,
+    pub socios_activos: i64,
+    pub inscripciones_hoy: i64,
+    pub sesiones_hoy: i64,
+}
+
+// Información de las sesiones para el panel de recepción
+#[derive(serde::Serialize, sqlx::FromRow)]
+pub struct SesionRecepcion {
+    pub sesion_id: i64,
+    pub actividad: String,
+    pub inicio: String,
+    pub fin: String,
+    pub coach: String,
+    pub lugar: Option<String>,
+    pub cupo: i16,
+    pub total_inscritos: i64,
+    pub cupos_disponibles: i64,
+    pub estado: String,
+}
+
+// Respuesta completa del dashboard de recepción
+#[derive(serde::Serialize)]
+pub struct DashboardRecepcion {
+    pub resumen: ResumenRecepcion,
+    pub actividades_hoy: Vec<SesionRecepcion>,
+    pub proximas_actividades: Vec<SesionRecepcion>,
+}
+
+// Planes y precios disponibles para el alta de socios
+#[derive(Serialize, sqlx::FromRow)]
+pub struct PlanRecepcion {
+    pub id: i32,
+    pub nombre: String,
+    pub nivel: i16,
+    pub descripcion: Option<String>,
+    pub beneficios: Option<String>,
+    pub periodicidad: String,
+    pub precio: f64,
 // Contenido leído del QR del socio (SIGAC:SOCIO:1:<UUID>)
 #[derive(Deserialize)]
 pub struct InscripcionQrRequest {
