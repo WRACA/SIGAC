@@ -149,15 +149,12 @@ export function formatearFecha(fechaStr) {
 }
 
 /**
- * Formatea una hora HH:MM a formato legible de 12 horas con AM/PM (ej. "8:00 AM")
+ * Formatea una hora HH:MM[:SS] a formato de 24 horas (ej. "08:00", "17:30")
  */
 export function formatearHora(horaStr) {
   if (!horaStr) return "";
   const [h, m] = horaStr.split(":");
   if (h === undefined || m === undefined) return horaStr;
-  const horas = parseInt(h, 10);
-  const periodo = horas >= 12 ? "PM" : "AM";
-  const horas12 = horas % 12 || 12;
-  return `${horas12}:${m} ${periodo}`;
+  return `${h.padStart(2, "0")}:${m.slice(0, 2)}`;
 }
 

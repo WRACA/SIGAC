@@ -64,7 +64,3 @@
 .mis-inscripciones-tabla tbody tr:last-child td {
   border-bottom: none;
 }
-
-.mis-inscripciones-acceso {
-  text-transform: capitalize;
-}

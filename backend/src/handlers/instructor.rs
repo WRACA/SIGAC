@@ -13,6 +13,7 @@ use crate::{
         ClaseResumen, InscritoSesion, RangoFechas, SesionDetalleInstructor, SesionInstructor,
     },
     qr,
+    cierre::cerrar_sesiones_terminadas,
 };
 // Columnas comunes de una sesión del instructor (deben coincidir con `SesionInstructor`).
 // Requiere los alias `s` (sesion), `a` (actividad) e `i` (conteo de inscritos).
@@ -51,7 +52,7 @@ const FROM_SESION: &str = r#"
     LEFT JOIN (
         SELECT sesion_id, COUNT(*) AS ocupados
         FROM inscripcion
-        WHERE estado IN ('inscrito', 'asistio')
+        WHERE estado IN ('inscrito', 'asistio', 'falta')
         GROUP BY sesion_id
     ) i ON i.sesion_id = s.id
 "#;
@@ -117,6 +118,8 @@ pub async fn consultar_sesiones(
             "No tienes un perfil de instructor activo".to_string(),
         ));
     }
+    // Marcar faltas y sesiones realizadas antes de mostrar estados
+    cerrar_sesiones_terminadas(&state.api_pool).await;
 // 5. Consultar las sesiones del instructor (en curso, próximas y finalizadas),
 //    limitadas al rango de fechas si se envió. Las clases en curso van primero;
 //    el resto en orden cronológico.
@@ -224,6 +227,8 @@ pub async fn consultar_detalle_sesion(
             "Esta función es exclusiva para instructores".to_string(),
         ));
     }
+    // Marcar faltas y sesiones realizadas antes de mostrar estados
+    cerrar_sesiones_terminadas(&state.api_pool).await;
 // 2. Consultar la sesión asignada al coach (solo si está activo)
     let consulta = format!(
         r#"
@@ -262,7 +267,7 @@ pub async fn consultar_detalle_sesion(
         JOIN socio so ON i.socio_id = so.id
         JOIN usuario u ON so.usuario_id = u.id
         WHERE i.sesion_id = $1
-          AND i.estado IN ('inscrito', 'asistio')
+          AND i.estado IN ('inscrito', 'asistio', 'falta')
         ORDER BY u.nombre, u.apellido_p
         "#
     )
@@ -635,6 +640,8 @@ pub async fn consultar_inscritos(
             "No tienes un perfil de instructor activo".to_string(),
         ));
     };
+    // Marcar faltas y sesiones realizadas antes de mostrar estados
+    cerrar_sesiones_terminadas(&state.api_pool).await;
 // 5. Verificar que la sesión exista y pertenezca al instructor
     let propietario = sqlx::query_scalar::<_, i32>(
         "SELECT coach_id FROM sesion WHERE id = $1"

@@ -7,7 +7,7 @@ import SelectorSesion from "../components/SelectorSesion.jsx";
 import PildoraMetodo from "../components/PildoraMetodo.jsx";
 import InscripcionQR from "../components/InscripcionQR.jsx";
 import { useSesionesSemana } from "../hooks/useSesionesSemana.js";
-import { formatearHorasPg } from "../utils/formato.js";
+import { HORA_24, formatearHorasPg } from "../utils/formato.js";
 import { hoyISO } from "../utils/fechas.js";
 import "../assets/InscripcionRecepcion.css";
 import {
@@ -302,6 +302,7 @@ export default function InscripcionRecepcion() {
               key={sesionSeleccionada}
               sesion={sesionActual}
               onEstadoCambia={alCambiarLector}
+              onInscrito={recargar}
             />
           </div>
         ) : (
@@ -398,11 +399,8 @@ export default function InscripcionRecepcion() {
 
               <p>
                 <strong>Horario:</strong>{" "}
-                {new Date(sesionActual.inicio).toLocaleString("es-MX")} –{" "}
-                {new Date(sesionActual.fin).toLocaleTimeString("es-MX", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {new Date(sesionActual.inicio).toLocaleString("es-MX", { hourCycle: "h23" })} –{" "}
+                {new Date(sesionActual.fin).toLocaleTimeString("es-MX", HORA_24)}
               </p>
 
               <p>

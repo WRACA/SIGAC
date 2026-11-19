@@ -8,6 +8,7 @@ use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 
 use crate::{
     AppState,
+    cierre::cerrar_sesiones_terminadas,
     errors::{error_interno, ApiError},
     handlers::auth::Claims,
     models::{
@@ -600,6 +601,9 @@ pub async fn dashboard_recepcion(
         ));
     }
 
+    // Marcar faltas y sesiones realizadas antes de mostrar estados
+    cerrar_sesiones_terminadas(&state.api_pool).await;
+
     // 3. Obtener los indicadores generales
     let resumen = sqlx::query_as::<_, ResumenRecepcion>(
         r#"
@@ -663,12 +667,12 @@ pub async fn dashboard_recepcion(
             s.cupo,
 
             COUNT(i.id) FILTER (
-                WHERE i.estado IN ('inscrito', 'asistio')
+                WHERE i.estado IN ('inscrito', 'asistio', 'falta')
             )::bigint AS total_inscritos,
 
             GREATEST(
                 s.cupo::bigint - COUNT(i.id) FILTER (
-                    WHERE i.estado IN ('inscrito', 'asistio')
+                    WHERE i.estado IN ('inscrito', 'asistio', 'falta')
                 ),
                 0
             )::bigint AS cupos_disponibles,
@@ -718,12 +722,12 @@ pub async fn dashboard_recepcion(
             s.cupo,
 
             COUNT(i.id) FILTER (
-                WHERE i.estado IN ('inscrito', 'asistio')
+                WHERE i.estado IN ('inscrito', 'asistio', 'falta')
             )::bigint AS total_inscritos,
 
             GREATEST(
                 s.cupo::bigint - COUNT(i.id) FILTER (
-                    WHERE i.estado IN ('inscrito', 'asistio')
+                    WHERE i.estado IN ('inscrito', 'asistio', 'falta')
                 ),
                 0
             )::bigint AS cupos_disponibles,

@@ -4,6 +4,8 @@ import { menus } from "../components/menus.js";
 import { obtenerMisInscripciones } from "../services/socio.js";
 import {
   ESTADO_INSCRIPCION,
+  HORA_24,
+  TIPO_ACCESO,
   formatearFechaHora,
   parsearFechaPg,
 } from "../utils/formato.js";
@@ -114,14 +116,11 @@ export default function MisInscripciones() {
                         <td>{i.actividad}</td>
                         <td>
                           {formatearFechaHora(i.inicio)} –{" "}
-                          {parsearFechaPg(i.fin).toLocaleTimeString("es-MX", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {parsearFechaPg(i.fin).toLocaleTimeString("es-MX", HORA_24)}
                         </td>
                         <td>{i.coach || "—"}</td>
                         <td>{i.lugar || "—"}</td>
-                        <td className="mis-inscripciones-acceso">{i.tipo_acceso}</td>
+                        <td>{TIPO_ACCESO[i.tipo_acceso] || i.tipo_acceso}</td>
                         <td>
                           <span className={`dashboard-badge ${CLASE_ESTADO[i.estado] || ""}`}>
                             {ESTADO_INSCRIPCION[i.estado] || i.estado}

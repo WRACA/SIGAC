@@ -11,6 +11,7 @@ import {
   formatearHora,
   ordenarClasesPriorizadas,
 } from "../utils/clasesUtils.js";
+import { ESTADO_INSCRIPCION } from "../utils/formato.js";
 import "../assets/ClasesInstructor.css";
 
 const { nombre: rol, opciones } = menus.instructor;
@@ -628,9 +629,8 @@ export default function ClasesInstructor() {
                             <span
                               className={`modal-alumno-badge ${alumno.estado_inscripcion}`}
                             >
-                              {alumno.estado_inscripcion === "asistio"
-                                ? "Asistió"
-                                : "Inscrito"}
+                              {ESTADO_INSCRIPCION[alumno.estado_inscripcion] ||
+                                alumno.estado_inscripcion}
                             </span>
                           </div>
                         );

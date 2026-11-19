@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import DashboardLayout from "../components/DashboardLayout.jsx";
 import { menus } from "../components/menus.js";
 import { obtenerDashboardRecepcion } from "../services/recepcion.js";
-import { parsearFechaPg } from "../utils/formato.js";
+import { HORA_24, parsearFechaPg } from "../utils/formato.js";
 
 import "../assets/Recepcionista.css";
 
@@ -17,9 +17,7 @@ function mostrarHora(fecha) {
 
   return d.toLocaleTimeString("es-MX", {
     timeZone: "America/Mexico_City",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
+    ...HORA_24,
   });
 }
 

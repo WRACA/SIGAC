@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { HORA_24 } from "../utils/formato.js";
 import "../assets/MiHorario.css";
 
 const HORA_INICIO = 6;
@@ -33,11 +34,7 @@ function mismaFecha(fecha1, fecha2) {
 }
 
 function formatoHora(fecha) {
-  return fecha.toLocaleTimeString("es-MX", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+  return fecha.toLocaleTimeString("es-MX", HORA_24);
 }
 
 function formatoFecha(fecha) {

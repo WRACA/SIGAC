@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout.jsx";
 import { menus } from "../components/menus.js";
 import { obtenerSesiones } from "../services/inscripciones.js";
-import { formatearFechaHora, parsearFechaPg } from "../utils/formato.js";
+import { HORA_24, formatearFechaHora, parsearFechaPg } from "../utils/formato.js";
 import "../assets/SociosInscritos.css";
 
 // Clase visual según los cupos restantes
@@ -97,10 +97,7 @@ export default function SesionesRecepcion() {
                       <td>{s.actividad}</td>
                       <td>{formatearFechaHora(s.inicio)}</td>
                       <td>
-                        {parsearFechaPg(s.fin).toLocaleTimeString("es-MX", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {parsearFechaPg(s.fin).toLocaleTimeString("es-MX", HORA_24)}
                       </td>
                       <td>{s.coach}</td>
                       <td>{s.lugar || "—"}</td>

@@ -3,6 +3,7 @@ import { FaChevronDown, FaChevronUp } from "react-icons/fa6";
 
 import EscanerQR from "./EscanerQR.jsx";
 import { inscribirPorQR } from "../services/inscripciones.js";
+import { HORA_24 } from "../utils/formato.js";
 
 import "../assets/SelectorSesionQR.css";
 
@@ -15,8 +16,7 @@ function formatearFecha(fecha) {
     day: "numeric",
     month: "long",
     year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+    ...HORA_24,
   });
 }
 
@@ -26,9 +26,13 @@ function formatearFecha(fecha) {
  * La página debe montarlo con key={sesionId} para que al cambiar de sesión
  * se colapse el lector y se limpie el resultado.
  *
- * @param {{ sesion?: Object, onEstadoCambia?: (ocupado: boolean) => void }} props
+ * @param {{
+ *   sesion?: Object,
+ *   onEstadoCambia?: (ocupado: boolean) => void,
+ *   onInscrito?: () => void,
+ * }} props
  */
-export default function InscripcionQR({ sesion, onEstadoCambia }) {
+export default function InscripcionQR({ sesion, onEstadoCambia, onInscrito }) {
   const [panelAbierto, setPanelAbierto] = useState(false);
   const [procesando, setProcesando] = useState(false);
   const [resultado, setResultado] = useState(null); // { tipo: "exito" | "error", mensaje }
@@ -72,6 +76,8 @@ export default function InscripcionQR({ sesion, onEstadoCambia }) {
           tipo: "exito",
           mensaje: respuesta?.mensaje || "Inscripción registrada correctamente",
         });
+        // Actualiza los cupos mostrados (igual que la inscripción manual)
+        onInscrito?.();
       } catch (err) {
         setResultado({
           tipo: "error",
@@ -82,7 +88,7 @@ export default function InscripcionQR({ sesion, onEstadoCambia }) {
         setProcesando(false);
       }
     },
-    [sesionId]
+    [sesionId, onInscrito]
   );
 
   return (

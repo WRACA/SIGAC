@@ -4,7 +4,11 @@ import { Link } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout.jsx";
 import { menus } from "../components/menus.js";
 import { obtenerMisInscripciones } from "../services/socio.js";
-import { parsearFechaPg } from "../utils/formato.js";
+import {
+  ESTADO_INSCRIPCION,
+  TIPO_ACCESO,
+  parsearFechaPg,
+} from "../utils/formato.js";
 import "../assets/MisActividades.css";
 
 const { nombre: rol, opciones } = menus.socio;
@@ -21,6 +25,7 @@ function formatearFecha(fecha) {
   return fechaValida.toLocaleString("es-MX", {
     dateStyle: "long",
     timeStyle: "short",
+    hourCycle: "h23",
   });
 }
 
@@ -105,10 +110,10 @@ export default function MisActividades() {
               >
                 <div className="mis-actividad-superior">
                   <span className="mis-actividad-categoria">
-                    {inscripcion.tipo_acceso}
+                    {TIPO_ACCESO[inscripcion.tipo_acceso] || inscripcion.tipo_acceso}
                   </span>
                   <span className="mis-actividad-estado">
-                    {inscripcion.estado}
+                    {ESTADO_INSCRIPCION[inscripcion.estado] || inscripcion.estado}
                   </span>
                 </div>
 
