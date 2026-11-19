@@ -5,3 +5,4 @@ pub mod perfil;
 pub mod instructor;
 pub mod credencial;
 pub mod socio;
+pub mod inscripcion_qr;
