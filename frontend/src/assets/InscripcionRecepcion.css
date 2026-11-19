@@ -190,3 +190,13 @@
 .sugerencia-socio:disabled {
   pointer-events: none;
 }
+
+/* MÉTODO DE INSCRIPCIÓN (píldora) Y SESIÓN COMÚN */
+
+.inscripcion-contenedor .pildora-metodo {
+  margin-bottom: 24px;
+}
+
+.inscripcion-sesion {
+  margin-bottom: 24px;
+}

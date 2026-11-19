@@ -7,7 +7,6 @@ export const menus = {
       { nombre: "Inicio", ruta: "/recepcion" },
       { nombre: "Socios", ruta: "/recepcion/socios" },
       { nombre: "Inscripciones", ruta: "/recepcion/inscripciones" },
-      { nombre: "Inscripción QR", ruta: "/recepcion/inscripcion-qr" },
       { nombre: "Actividades", ruta: "/recepcion/actividades" },
     ],
   },

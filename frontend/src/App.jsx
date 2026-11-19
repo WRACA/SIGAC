@@ -23,7 +23,6 @@ import HorariosSocio from "./pages/HorariosSocio.jsx";
 import AccesoDenegado from "./pages/AccesoDenegado.jsx";
 import MisActividades from "./pages/MisActividades.jsx";
 import MiHorario from "./pages/MiHorario.jsx";
-import SelectorSesionQR from "./pages/SelectorSesionQR.jsx";
 import MisInscripciones from "./pages/MisInscripciones.jsx";
 import HorariosInstructor from "./pages/HorariosInstructor.jsx";
 
@@ -76,7 +75,7 @@ export default function App() {
         <Route path="recepcion/socios" element={<SociosRecepcion />} />
         <Route path="recepcion/inscripciones" element={<InscripcionRecepcion />} />
         <Route path="recepcion/actividades" element={<SesionesRecepcion />} />
-        <Route path="recepcion/inscripcion-qr" element={<SelectorSesionQR />} />
+        <Route path="recepcion/inscripcion-qr" element={<Navigate to="/recepcion/inscripciones?metodo=qr" replace />} />
         <Route path="recepcion/:seccion" element={<Navigate to="/recepcion" replace />} />
         <Route path="recepcionista" element={<Navigate to="/recepcion" replace />} />
         <Route path="recepcionista/inscripciones" element={<Navigate to="/recepcion/inscripciones" replace />} />
