@@ -69,14 +69,15 @@ pub async fn inscribir_socio_por_qr(
         "Token inválido o expirado".to_string(),
     ))?;
 
-    // 3. Comprobar en la BD que sea un recepcionista activo
+    // 3. Comprobar en la BD que sea un recepcionista o administrador activo,
+    //    igual que el resto de rutas de recepción
     //    (no confiamos solo en el rol del JWT: la cuenta pudo desactivarse después)
-    let es_recepcionista = sqlx::query_scalar::<_, bool>(
+    let autorizado = sqlx::query_scalar::<_, bool>(
         r#"
         SELECT EXISTS (
             SELECT 1 FROM usuario
             WHERE id = $1
-              AND rol = 'recepcionista'
+              AND rol IN ('recepcionista', 'administrador')
               AND activo = TRUE
         )
         "#
@@ -86,10 +87,10 @@ pub async fn inscribir_socio_por_qr(
     .await
     .map_err(error_interno)?;
 
-    if !es_recepcionista {
+    if !autorizado {
         return Err((
             StatusCode::FORBIDDEN,
-            "Solo un recepcionista puede inscribir socios con QR".to_string(),
+            "No tienes permisos para inscribir socios".to_string(),
         ));
     }
 

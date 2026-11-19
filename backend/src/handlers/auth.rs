@@ -346,7 +346,7 @@ pub async fn login(
     );
 
     let encontrado = sqlx::query_as::<_, UsuarioLogin>(
-        r#"SELECT id, nombre, correo, rol::text, password_hash AS password
+        r#"SELECT id, nombre, correo, rol::text, password_hash AS password, activo
            FROM usuario WHERE correo = $1"# 
     )
     .bind(&correo)
@@ -361,6 +361,15 @@ pub async fn login(
     let es_correcta = bcrypt::verify(&body.password, &u.password).unwrap_or(false);
     if !es_correcta {
         return Err(credenciales_malas);
+    }
+
+    // Las cuentas dadas de baja no pueden iniciar sesión.
+    // Se revisa después de la contraseña para no revelar a terceros si el correo existe.
+    if !u.activo {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Tu cuenta está inactiva. Acude a recepción.".to_string(),
+        ));
     }
 
     let expiracion = SystemTime::now()

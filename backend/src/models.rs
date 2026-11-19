@@ -36,6 +36,7 @@ pub struct UsuarioLogin {
     pub correo: String,
     pub rol: String,
     pub password: String, // aquí viene el hash guardado en la BD
+    pub activo: bool,
 }
 
 #[derive(serde::Serialize,sqlx::FromRow)]
