@@ -232,6 +232,8 @@ pub struct PlanRecepcion {
     pub beneficios: Option<String>,
     pub periodicidad: String,
     pub precio: f64,
+}
+
 // Contenido leído del QR del socio (SIGAC:SOCIO:1:<UUID>)
 #[derive(Deserialize)]
 pub struct InscripcionQrRequest {
