@@ -115,14 +115,28 @@ export default function SociosRecepcion() {
     return () => clearTimeout(timer);
   }, [busqueda]);
 
+
   // Actualizar campos del formulario
   const cambiarAlta = (e) => {
     const { name, value, type, checked } = e.target;
 
-    setAlta((actual) => ({
-      ...actual,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    setAlta((actual) => {
+      const nuevo = {
+        ...actual,
+        [name]: type === "checkbox" ? checked : value,
+      };
+
+      if (name === "plan_id") {
+        const periodos = planes
+        .filter((p) => p.id === Number(value))
+        .map((p) => p.periodicidad);
+
+        if (!periodos.includes(nuevo.periodicidad)) {
+          nuevo.periodicidad = periodos[0] ?? "";
+        }
+      }
+      return nuevo;
+    });
   };
 
   // Registrar socio, membresía y pago
