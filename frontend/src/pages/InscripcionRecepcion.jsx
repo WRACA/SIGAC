@@ -2,10 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout.jsx";
 import { menus } from "../components/menus.js";
-import { parsearFechaPg } from "../utils/formato.js";
+import SelectorSesion from "../components/SelectorSesion.jsx";
+import { useSesionesSemana } from "../hooks/useSesionesSemana.js";
+import { formatearHorasPg } from "../utils/formato.js";
+import { hoyISO } from "../utils/fechas.js";
 import "../assets/InscripcionRecepcion.css";
 import {
   buscarSocios,
+  obtenerClasesRecepcion,
   obtenerSesiones,
   registrarInscripcion,
 } from "../services/inscripciones.js";
@@ -13,26 +17,7 @@ import {
 // Menú de Recepcionista
 const { opciones } = menus.recepcionista;
 
-// Formatea una sesión disponible para mostrar en el selector
-function formatearSesion(sesion) {
-  const inicio = parsearFechaPg(sesion.inicio);
-  const fin = parsearFechaPg(sesion.fin);
-  const fechaStr = inicio.toLocaleDateString("es-MX", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-  const horaInicio = inicio.toLocaleTimeString("es-MX", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const horaFin = fin.toLocaleTimeString("es-MX", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const lugar = sesion.lugar ? ` · ${sesion.lugar}` : "";
-  return `${sesion.actividad} — ${fechaStr} ${horaInicio}–${horaFin} | ${sesion.coach}${lugar} (${sesion.cupos_disponibles} cupos)`;
-}
+const etiquetaHora = (s) => formatearHorasPg(s.inicio, s.fin);
 
 export default function InscripcionRecepcion() {
   // Permite llegar con una búsqueda precargada (?q=...) desde la vista de socios
@@ -48,39 +33,25 @@ export default function InscripcionRecepcion() {
 
   // Resultados de la API
   const [sociosFiltrados, setSociosFiltrados] = useState([]);
-  const [sesiones, setSesiones] = useState([]);
+
+  // Clases y sesiones disponibles, cargadas por semana
+  const semana = useSesionesSemana({
+    cargarSesiones: obtenerSesiones,
+    cargarClases: obtenerClasesRecepcion,
+  });
+  const { sesiones, listo, recargar } = semana;
 
   // Estados de carga
   const [cargandoSocios, setCargandoSocios] = useState(false);
-  const [cargandoSesiones, setCargandoSesiones] = useState(true);
   const [enviando, setEnviando] = useState(false);
 
   const debounceRef = useRef(null);
   const ultimaBusqueda = useRef(0);
   const componenteActivo = useRef(false);
 
-  // Cargar sesiones disponibles al montar el componente
+  // Marca el componente como montado (las sesiones las carga useSesionesSemana)
   useEffect(() => {
     componenteActivo.current = true;
-
-    async function cargarSesiones() {
-      setCargandoSesiones(true);
-      try {
-        const datos = await obtenerSesiones();
-        if (!componenteActivo.current) return;
-        setSesiones(Array.isArray(datos) ? datos : []);
-      } catch (err) {
-        if (!componenteActivo.current) return;
-        setMensaje(err.message || "No se pudieron cargar las sesiones.");
-        setTipoMensaje("error");
-      } finally {
-        if (componenteActivo.current) {
-          setCargandoSesiones(false);
-        }
-      }
-    }
-
-    cargarSesiones();
 
     return () => {
       componenteActivo.current = false;
@@ -203,13 +174,7 @@ export default function InscripcionRecepcion() {
       setSesionSeleccionada("");
       setMostrarSugerencias(false);
 
-      obtenerSesiones()
-        .then((datos) => {
-          if (componenteActivo.current && Array.isArray(datos)) {
-            setSesiones(datos);
-          }
-        })
-        .catch(() => {});
+      recargar();
     } catch (err) {
       setMensaje(
         err.message || "Ocurrió un error al registrar la inscripción."
@@ -328,30 +293,23 @@ export default function InscripcionRecepcion() {
           )}
 
           {/* SESIÓN DISPONIBLE */}
-          <label htmlFor="seleccionar-sesion">Sesión disponible</label>
-
-          <select
-            id="seleccionar-sesion"
-            value={sesionSeleccionada}
-            disabled={cargandoSesiones || enviando}
-            onChange={(e) => {
-              setSesionSeleccionada(e.target.value);
+          <SelectorSesion
+            {...semana}
+            sesionId={sesionSeleccionada}
+            onCambiar={(id) => {
+              setSesionSeleccionada(id);
               setMensaje("");
               setTipoMensaje("");
             }}
-          >
-            <option value="">
-              {cargandoSesiones
-                ? "Cargando sesiones…"
-                : "Selecciona una sesión"}
-            </option>
-
-            {sesiones.map((sesion) => (
-              <option key={sesion.sesion_id} value={sesion.sesion_id}>
-                {formatearSesion(sesion)}
-              </option>
-            ))}
-          </select>
+            etiquetaHora={etiquetaHora}
+            idBase="seleccionar-sesion"
+            minFecha={hoyISO()}
+            disabled={!listo || enviando}
+            permitirVacio
+            placeholderClase={
+              !listo ? "Cargando sesiones…" : "Selecciona una clase"
+            }
+          />
 
           {/* RESUMEN */}
           {socioSeleccionado && sesionActual && (
@@ -397,7 +355,7 @@ export default function InscripcionRecepcion() {
           <button
             type="submit"
             className="boton-inscripcion"
-            disabled={enviando || cargandoSesiones}
+            disabled={enviando || !listo}
           >
             {enviando ? "Registrando…" : "Confirmar inscripción"}
           </button>

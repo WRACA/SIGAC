@@ -1,4 +1,4 @@
-import { apiFetch } from "./api.js";
+import { apiFetch, parametrosRango } from "./api.js";
 
 const API_URL = "/api/recepcion";
 
@@ -30,12 +30,24 @@ export function buscarSocios(texto) {
 
 /**
  * Obtiene las sesiones disponibles para inscripción.
- * GET /api/recepcion/actividades
+ * GET /api/recepcion/actividades[?desde=YYYY-MM-DD&hasta=YYYY-MM-DD]
+ * @param {{desde?: string, hasta?: string}} [rango] - Fechas locales opcionales
  * @returns {Promise<Array>} Lista de sesiones disponibles
  */
-export function obtenerSesiones() {
-  return apiFetch(`${API_URL}/actividades`, {
+export function obtenerSesiones(rango) {
+  return apiFetch(`${API_URL}/actividades${parametrosRango(rango)}`, {
     mensajeError: "Error al obtener las sesiones",
+  });
+}
+
+/**
+ * Clases con sesiones disponibles y el día de su próxima sesión.
+ * GET /api/recepcion/clases
+ * @returns {Promise<Array<{actividad: string, fecha_sugerida: string}>>}
+ */
+export function obtenerClasesRecepcion() {
+  return apiFetch(`${API_URL}/clases`, {
+    mensajeError: "Error al obtener las clases",
   });
 }
 

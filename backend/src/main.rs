@@ -11,12 +11,14 @@ use handlers::auth::{login, register};
 use handlers::actividades::listar_actividades;
 use handlers::recepcion::buscar_socios;
 use handlers::recepcion::actividades_inscripcion;
+use handlers::recepcion::clases_inscripcion;
 use handlers::recepcion::registrar_inscripcion;
 use handlers::recepcion::dashboard_recepcion;
 use handlers::recepcion::listar_planes;
 use handlers::perfil::obtener_perfil;
 use handlers::credencial::obtener_credencial_qr;
 use handlers::instructor::consultar_sesiones;
+use handlers::instructor::consultar_clases;
 use handlers::instructor::consultar_detalle_sesion;
 use handlers::instructor::registrar_asistencia;
 use handlers::instructor::registrar_asistencia_qr;
@@ -88,6 +90,7 @@ async fn main() {
     .route("/api/actividades", get(listar_actividades))
     .route("/api/recepcion/socios", get(buscar_socios))
     .route("/api/recepcion/actividades", get(actividades_inscripcion))
+    .route("/api/recepcion/clases", get(clases_inscripcion))
     .route("/api/recepcion/inscripciones", post(registrar_inscripcion))
     .route("/api/recepcion/dashboard", get(dashboard_recepcion))
     .route("/api/recepcion/planes", get(listar_planes))
@@ -95,6 +98,7 @@ async fn main() {
     .route("/api/socio/credencial-qr", get(obtener_credencial_qr))
     .route("/api/socio/inscripciones", get(obtener_inscripciones))
     .route("/api/instructor/sesiones", get(consultar_sesiones))
+    .route("/api/instructor/clases", get(consultar_clases))
     .route("/api/instructor/sesiones/{id}", get(consultar_detalle_sesion))
     .route("/api/instructor/sesiones/{id}/inscritos", get(consultar_inscritos))
     .route("/api/instructor/asistencia", patch(registrar_asistencia))

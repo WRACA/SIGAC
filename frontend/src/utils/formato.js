@@ -52,6 +52,19 @@ export function formatearFechaHora(valor) {
   });
 }
 
+// Horario "08:00–09:00" a partir de horas "HH:MM[:SS]"
+export function rangoHoras(horaInicio, horaFin) {
+  return `${formatearHora(horaInicio)}–${formatearHora(horaFin)}`;
+}
+
+// Horario a partir de inicio y fin de PostgreSQL (timestamptz)
+export function formatearHorasPg(inicio, fin) {
+  const hora = { hour: "2-digit", minute: "2-digit" };
+  return `${parsearFechaPg(inicio).toLocaleTimeString("es-MX", hora)}–${parsearFechaPg(
+    fin
+  ).toLocaleTimeString("es-MX", hora)}`;
+}
+
 // Une nombre y apellidos ignorando vacíos
 export function nombreCompleto({ nombre, apellido_p, apellido_m } = {}) {
   return [nombre, apellido_p, apellido_m].filter(Boolean).join(" ");

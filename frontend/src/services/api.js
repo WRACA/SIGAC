@@ -55,6 +55,15 @@ export async function obtenerMensajeError(respuesta, mensajePorDefecto) {
   }
 }
 
+// Arma "?desde=...&hasta=..." solo con las fechas presentes
+export function parametrosRango({ desde, hasta } = {}) {
+  const params = new URLSearchParams();
+  if (desde) params.set("desde", desde);
+  if (hasta) params.set("hasta", hasta);
+  const texto = params.toString();
+  return texto ? `?${texto}` : "";
+}
+
 /**
  * Realiza una petición a la API.
  * @param {string} url - Ruta del endpoint (ej. "/api/socio/perfil")

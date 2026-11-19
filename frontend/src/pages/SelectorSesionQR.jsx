@@ -1,15 +1,25 @@
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { FaChevronDown, FaChevronUp } from "react-icons/fa6";
 
 import DashboardLayout from "../components/DashboardLayout.jsx";
 import EscanerQR from "../components/EscanerQR.jsx";
+import SelectorSesion from "../components/SelectorSesion.jsx";
 import { menus } from "../components/menus.js";
-import { inscribirPorQR, obtenerSesiones } from "../services/inscripciones.js";
+import { useSesionesSemana } from "../hooks/useSesionesSemana.js";
+import {
+  inscribirPorQR,
+  obtenerClasesRecepcion,
+  obtenerSesiones,
+} from "../services/inscripciones.js";
+import { formatearHorasPg } from "../utils/formato.js";
+import { hoyISO } from "../utils/fechas.js";
 
 import "../assets/SelectorSesionQR.css";
 
 const { nombre: rol, opciones } = menus.recepcionista;
+
+const etiquetaHora = (s) => formatearHorasPg(s.inicio, s.fin);
 
 // Formatea la fecha y hora de una sesión
 function formatearFecha(fecha) {
@@ -26,49 +36,19 @@ function formatearFecha(fecha) {
 }
 
 export default function SelectorSesionQR() {
-  const [sesiones, setSesiones] = useState([]);
+  // Clases y sesiones disponibles, cargadas por semana
+  const semana = useSesionesSemana({
+    cargarSesiones: obtenerSesiones,
+    cargarClases: obtenerClasesRecepcion,
+  });
+  const { sesiones, listo, error, recargar } = semana;
   const [sesionSeleccionada, setSesionSeleccionada] = useState("");
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState("");
-  const [intento, setIntento] = useState(0);
 
   // Estado del lector QR
   const [panelAbierto, setPanelAbierto] = useState(false);
   const [procesando, setProcesando] = useState(false);
   const [resultado, setResultado] = useState(null); // { tipo: "exito" | "error", mensaje }
   const procesandoRef = useRef(false);
-
-  // Consulta las sesiones disponibles al cargar la pantalla
-  useEffect(() => {
-    let activo = true;
-
-    async function cargarSesiones() {
-      try {
-        setCargando(true);
-        setError("");
-
-        const datos = await obtenerSesiones();
-
-        if (activo) {
-          setSesiones(Array.isArray(datos) ? datos : []);
-        }
-      } catch (err) {
-        if (activo) {
-          setError(err.message || "No fue posible cargar las sesiones.");
-        }
-      } finally {
-        if (activo) {
-          setCargando(false);
-        }
-      }
-    }
-
-    cargarSesiones();
-
-    return () => {
-      activo = false;
-    };
-  }, [intento]);
 
   // Obtiene la información de la sesión seleccionada
   const sesionActual = sesiones.find(
@@ -201,49 +181,40 @@ export default function SelectorSesionQR() {
         </p>
 
         <section className="selector-qr-seccion">
-          <label htmlFor="sesion-qr">
+          <label htmlFor="sesion-qr-clase">
             Seleccionar sesión
           </label>
 
-          {cargando ? (
-            <p className="selector-qr-mensaje">
-              Cargando sesiones disponibles...
-            </p>
-          ) : error ? (
+          {!listo && error ? (
             <div className="selector-qr-error">
               <p>{error}</p>
 
               <button
                 type="button"
-                onClick={() => setIntento((actual) => actual + 1)}
+                onClick={recargar}
               >
                 Reintentar
               </button>
             </div>
-          ) : sesiones.length === 0 ? (
+          ) : !listo ? (
+            <p className="selector-qr-mensaje">
+              Cargando sesiones disponibles...
+            </p>
+          ) : semana.clases.length === 0 ? (
             <p className="selector-qr-mensaje">
               No hay sesiones disponibles en este momento.
             </p>
           ) : (
-            <select
-              id="sesion-qr"
-              value={sesionSeleccionada}
-              onChange={(e) => cambiarSesion(e.target.value)}
+            <SelectorSesion
+              {...semana}
+              sesionId={sesionSeleccionada}
+              onCambiar={cambiarSesion}
+              etiquetaHora={etiquetaHora}
+              idBase="sesion-qr"
+              minFecha={hoyISO()}
               disabled={escaneando || procesando}
-            >
-              <option value="">Selecciona una sesión</option>
-
-              {sesiones.map((sesion) => (
-                <option
-                  key={sesion.sesion_id}
-                  value={sesion.sesion_id}
-                >
-                  {sesion.actividad} —{" "}
-                  {new Date(sesion.inicio).toLocaleString("es-MX")}{" "}
-                  ({sesion.cupos_disponibles} cupos)
-                </option>
-              ))}
-            </select>
+              permitirVacio
+            />
           )}
         </section>
 

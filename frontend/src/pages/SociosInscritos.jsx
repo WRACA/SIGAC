@@ -3,20 +3,31 @@ import { useSearchParams } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout.jsx";
 import { menus } from "../components/menus.js";
 import { obtenerInscritos } from "../services/asistencias.js";
-import { useSesionesInstructor, etiquetaSesion } from "../hooks/useSesionesInstructor.js";
-import { ESTADO_INSCRIPCION } from "../utils/formato.js";
+import { useSesionesInstructorSemana } from "../hooks/useSesionesInstructorSemana.js";
+import SelectorSesion from "../components/SelectorSesion.jsx";
+import { ESTADO_INSCRIPCION, rangoHoras } from "../utils/formato.js";
 import "../assets/SociosInscritos.css";
 
 const { nombre: rol, opciones } = menus.instructor;
 
 const CLASE_ESTADO = { asistio: "ok", inscrito: "aviso", falta: "error" };
 
+const etiquetaHora = (s) => rangoHoras(s.hora_inicio, s.hora_fin);
+
 export default function SociosInscritos() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { sesiones, cargando: cargandoSesiones, error: errorSesiones } = useSesionesInstructor();
+  const semana = useSesionesInstructorSemana(searchParams.get("sesionId"));
+  const { sesiones, listo, error: errorSesiones } = semana;
 
-  // Sesión elegida: la de la URL o, por defecto, la primera disponible
-  const sesionId = searchParams.get("sesionId") || (sesiones[0] ? String(sesiones[0].sesion_id) : "");
+  // Sesión elegida: la de la URL o, por defecto, la en curso o próxima de la semana actual.
+  // Un sesionId vacío en la URL significa "ninguna seleccionada".
+  const sesionPorDefecto =
+    sesiones.find((s) => s.en_curso) || sesiones.find((s) => s.estado_tiempo === "proxima");
+  const sesionId = searchParams.has("sesionId")
+    ? searchParams.get("sesionId")
+    : sesionPorDefecto
+    ? String(sesionPorDefecto.sesion_id)
+    : "";
   const sesionSeleccionada = sesiones.find((s) => String(s.sesion_id) === sesionId);
 
   const [inscritos, setInscritos] = useState([]);
@@ -57,27 +68,21 @@ export default function SociosInscritos() {
         {/* SELECTOR DE CLASE */}
         <div className="socios-inscritos-panel">
           <h3>Seleccionar sesión</h3>
-          <label htmlFor="clase-inscritos">Sesión</label>
 
-          {cargandoSesiones ? (
-            <p className="dashboard-cargando">Cargando sesiones...</p>
-          ) : errorSesiones ? (
+          {!listo && errorSesiones ? (
             <p className="dashboard-error">{errorSesiones}</p>
-          ) : sesiones.length === 0 ? (
-            <p className="dashboard-cargando">No tienes sesiones vigentes.</p>
+          ) : !listo ? (
+            <p className="dashboard-cargando">Cargando sesiones...</p>
+          ) : semana.clases.length === 0 ? (
+            <p className="dashboard-cargando">No tienes clases asignadas.</p>
           ) : (
-            <select
-              id="clase-inscritos"
-              value={sesionSeleccionada ? sesionId : ""}
-              onChange={(e) => setSearchParams({ sesionId: e.target.value })}
-            >
-              {!sesionSeleccionada && <option value="">Selecciona una sesión</option>}
-              {sesiones.map((s) => (
-                <option key={s.sesion_id} value={s.sesion_id}>
-                  {etiquetaSesion(s)}
-                </option>
-              ))}
-            </select>
+            <SelectorSesion
+              {...semana}
+              sesionId={sesionSeleccionada ? sesionId : ""}
+              onCambiar={(id) => setSearchParams({ sesionId: id })}
+              etiquetaHora={etiquetaHora}
+              idBase="clase-inscritos"
+            />
           )}
         </div>
 

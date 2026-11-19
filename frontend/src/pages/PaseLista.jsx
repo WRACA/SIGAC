@@ -3,26 +3,42 @@ import { useSearchParams } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout.jsx";
 import { menus } from "../components/menus.js";
 import { obtenerInscritos, registrarAsistencia } from "../services/asistencias.js";
-import { useSesionesInstructor, etiquetaSesion } from "../hooks/useSesionesInstructor.js";
-import { formatearFecha, formatearHora } from "../utils/formato.js";
+import { useSesionesInstructorSemana } from "../hooks/useSesionesInstructorSemana.js";
+import SelectorSesion from "../components/SelectorSesion.jsx";
+import { formatearFecha, formatearHora, rangoHoras } from "../utils/formato.js";
 import "../assets/PaseLista.css";
 import LectorQRAsistencia from "../components/LectorQRAsistencia.jsx";
 
 const { nombre: rol, opciones } = menus.instructor;
 
+const etiquetaHora = (s) => rangoHoras(s.hora_inicio, s.hora_fin);
+
+// Indicador del momento de la sesión
+const ESTADO_SESION = {
+  en_curso: { clase: "durante", texto: "Clase en curso" },
+  proxima: { clase: "antes", texto: "La clase aún no comienza" },
+  finalizada: { clase: "despues", texto: "Clase finalizada" },
+};
+
 export default function PaseLista() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { sesiones, cargando: cargandoSesiones, error: errorSesiones } = useSesionesInstructor();
+  const tieneSesionEnUrl = searchParams.has("sesionId");
+  const semana = useSesionesInstructorSemana(searchParams.get("sesionId"));
+  const { sesiones, listo, error: errorSesiones } = semana;
 
   // Evitar elegir arbitrariamente cuando hay sesiones simultáneas.
+  // Sin sesión en la URL se usa la en curso o la próxima de la semana actual.
+  // Un sesionId vacío en la URL significa "ninguna seleccionada".
   const sesionesEnCurso = sesiones.filter((s) => s.en_curso);
   const sesionPorDefecto =
   sesionesEnCurso.length > 1
     ? null
-    : sesionesEnCurso[0] || sesiones[0];
-const sesionId =
-  searchParams.get("sesionId") ||
-  (sesionPorDefecto ? String(sesionPorDefecto.sesion_id) : "");
+    : sesionesEnCurso[0] || sesiones.find((s) => s.estado_tiempo === "proxima");
+const sesionId = tieneSesionEnUrl
+  ? searchParams.get("sesionId")
+  : sesionPorDefecto
+  ? String(sesionPorDefecto.sesion_id)
+  : "";
 
   const sesion = sesiones.find((s) => String(s.sesion_id) === sesionId);
 
@@ -59,8 +75,8 @@ const sesionId =
     };
   }, [sesionId, cargarInscritos]);
 
-  const cambiarSesion = (e) => {
-    setSearchParams({ sesionId: e.target.value });
+  const cambiarSesion = (id) => {
+    setSearchParams({ sesionId: id });
     setMensaje("");
     setError("");
     setFiltro("");
@@ -94,6 +110,9 @@ const sesionId =
 
   const asistieron = inscritos.filter((s) => s.estado === "asistio").length;
   const puedeRegistrar = Boolean(sesion?.en_curso);
+  const estadoSesion = puedeRegistrar
+    ? ESTADO_SESION.en_curso
+    : ESTADO_SESION[sesion?.estado_tiempo] || ESTADO_SESION.proxima;
 
   return (
     <DashboardLayout titulo="Pase de lista" rol={rol} opciones={opciones}>
@@ -106,36 +125,42 @@ const sesionId =
           </div>
         </div>
 
+        {/* LECTOR QR: arriba para darle prioridad; disponible solo durante la sesión */}
+        {sesion && puedeRegistrar && (
+          <LectorQRAsistencia
+            key={sesionId}
+            sesionId={sesionId}
+            onRegistrada={async () => {
+              setInscritos(await cargarInscritos(sesionId));
+            }}
+          />
+        )}
+
         {/* SELECTOR DE CLASE CON PRIORIZACIÓN */}
         <div className="pase-lista-panel">
-          <label htmlFor="seleccionar-clase">Seleccionar sesión</label>
+          <label htmlFor="seleccionar-clase-clase">Seleccionar sesión</label>
 
-          {sesionesEnCurso.length > 1 && !searchParams.get("sesionId") && (
+          {sesionesEnCurso.length > 1 && !tieneSesionEnUrl && (
             <p className="pase-lista-error">
               Tienes varias clases en curso. Selecciona la sesión en la que deseas
               registrar asistencias.
               </p>
             )}
 
-          {cargandoSesiones ? (
-            <p className="dashboard-cargando">Cargando sesiones...</p>
-          ) : errorSesiones ? (
+          {!listo && errorSesiones ? (
             <p className="pase-lista-error">{errorSesiones}</p>
-          ) : sesiones.length === 0 ? (
-            <p className="dashboard-cargando">No tienes sesiones vigentes.</p>
+          ) : !listo ? (
+            <p className="dashboard-cargando">Cargando sesiones...</p>
+          ) : semana.clases.length === 0 ? (
+            <p className="dashboard-cargando">No tienes clases asignadas.</p>
           ) : (
-            <select
-              id="seleccionar-clase"
-              value={sesion ? sesionId : ""}
-              onChange={cambiarSesion}
-            >
-              {!sesion && <option value="">Selecciona una sesión</option>}
-              {sesiones.map((s) => (
-                <option key={s.sesion_id} value={s.sesion_id}>
-                  {etiquetaSesion(s)}
-                </option>
-              ))}
-            </select>
+            <SelectorSesion
+              {...semana}
+              sesionId={sesion ? sesionId : ""}
+              onCambiar={cambiarSesion}
+              etiquetaHora={etiquetaHora}
+              idBase="seleccionar-clase"
+            />
           )}
         </div>
 
@@ -153,8 +178,8 @@ const sesionId =
                   </p>
                 </div>
 
-                <span className={`pase-lista-estado ${puedeRegistrar ? "durante" : "antes"}`}>
-                  {puedeRegistrar ? "Clase en curso" : "La clase aún no comienza"}
+                <span className={`pase-lista-estado ${estadoSesion.clase}`}>
+                  {estadoSesion.texto}
                 </span>
               </div>
 
@@ -173,17 +198,6 @@ const sesionId =
                 </div>
               </div>
             </div>
-
-            {/* LECTOR QR: disponible únicamente durante la sesión */}
-            {puedeRegistrar && (
-              <LectorQRAsistencia
-              key={sesionId}
-              sesionId={sesionId}
-              onRegistrada={async () => {
-                setInscritos(await cargarInscritos(sesionId));
-              }}
-              />
-              )}
 
             {/* TABLA DE SOCIOS INSCRITOS */}
             <div className="pase-lista-panel">

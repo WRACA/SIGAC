@@ -1,14 +1,36 @@
-import { apiFetch } from "./api.js";
+import { apiFetch, parametrosRango } from "./api.js";
 
 const API_URL = "/api/instructor";
 
 /**
- * Sesiones vigentes (en curso y próximas) del instructor autenticado.
- * GET /api/instructor/sesiones
+ * Sesiones del instructor autenticado (en curso, próximas, finalizadas y canceladas).
+ * GET /api/instructor/sesiones[?desde=YYYY-MM-DD&hasta=YYYY-MM-DD]
+ * @param {{desde?: string, hasta?: string}} [rango] - Fechas locales opcionales
  */
-export function obtenerSesionesInstructor() {
-  return apiFetch(`${API_URL}/sesiones`, {
+export function obtenerSesionesInstructor(rango) {
+  return apiFetch(`${API_URL}/sesiones${parametrosRango(rango)}`, {
     mensajeError: "No se pudieron obtener tus sesiones",
+  });
+}
+
+/**
+ * Clases (actividades) del instructor con el día sugerido al elegirlas.
+ * GET /api/instructor/clases
+ * @returns {Promise<Array<{actividad: string, fecha_sugerida: string}>>}
+ */
+export function obtenerActividadesInstructor() {
+  return apiFetch(`${API_URL}/clases`, {
+    mensajeError: "No se pudieron obtener tus clases",
+  });
+}
+
+/**
+ * Detalle de una sesión del instructor (se usa para conocer su fecha).
+ * GET /api/instructor/sesiones/{id}
+ */
+export function obtenerSesionInstructor(sesionId) {
+  return apiFetch(`${API_URL}/sesiones/${encodeURIComponent(sesionId)}`, {
+    mensajeError: "No se pudo obtener la sesión",
   });
 }
 
