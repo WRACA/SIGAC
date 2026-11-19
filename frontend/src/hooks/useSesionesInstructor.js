@@ -9,22 +9,36 @@ export function useSesionesInstructor() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    let activo = true;
-    obtenerSesionesInstructor()
-      .then((datos) => {
-        if (!activo) return;
-        // El backend devuelve todas las sesiones; aquí solo interesan las vigentes
-        const vigentes = (Array.isArray(datos) ? datos : []).filter(
-          (s) => s.estado_tiempo === "en_curso" || s.estado_tiempo === "proxima"
-        );
-        setSesiones(vigentes);
-      })
-      .catch((err) => activo && setError(err.message))
-      .finally(() => activo && setCargando(false));
-    return () => {
-      activo = false;
-    };
-  }, []);
+  let activo = true;
+
+  const cargarSesiones = async () => {
+    try {
+      const datos = await obtenerSesionesInstructor();
+
+      if (!activo) return;
+
+      const vigentes = (Array.isArray(datos) ? datos : []).filter(
+        (s) => s.estado_tiempo === "en_curso" || s.estado_tiempo === "proxima"
+      );
+
+      setSesiones(vigentes);
+      setError("");
+    } catch (err) {
+      if (activo) setError(err.message);
+    } finally {
+      if (activo) setCargando(false);
+    }
+  };
+
+  cargarSesiones();
+
+  const intervalo = window.setInterval(cargarSesiones, 30000);
+
+  return () => {
+    activo = false;
+    window.clearInterval(intervalo);
+  };
+}, []);
 
   return { sesiones, cargando, error };
 }
