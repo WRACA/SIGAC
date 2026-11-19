@@ -25,16 +25,9 @@ export function cerrarSesion() {
 }
 
 // Pantalla de perfil según el rol del usuario.
-// Recepción no tiene vista de perfil, por lo que va a su panel.
+// Solo el socio tiene vista de perfil; los demás roles van a su panel (rutaPorRol).
 export function rutaPerfil(rol) {
-  switch (rol) {
-    case "socio":
-      return "/socio/perfil";
-    case "coach":
-      return "/instructor/perfil";
-    default:
-      return rutaPorRol(rol);
-  }
+  return rol === "socio" ? "/socio/perfil" : null;
 }
 
 // Ruta de inicio según el rol del usuario

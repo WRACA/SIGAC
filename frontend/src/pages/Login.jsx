@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FaApple, FaFacebookF, FaGoogle, FaRegEye, FaRegEyeSlash } from "react-icons/fa6";
+import { FaRegEye, FaRegEyeSlash } from "react-icons/fa6";
 // Importamos el servicio de autenticación
 import { login, guardarSesion, rutaPorRol } from "../services/auth";
 
@@ -14,16 +14,9 @@ const barrasLogo = [
   [13, 21, 0],
 ];
 
-const redes = [
-  { nombre: "Google", Icono: FaGoogle, color: "text-white" },
-  { nombre: "Apple", Icono: FaApple, color: "text-white" },
-  { nombre: "Facebook", Icono: FaFacebookF, color: "text-[#aabed8]" },
-];
-
 const inputClase =
   "h-[55px] w-full rounded-lg border border-[#282c2f] bg-[#111416] px-[17px] text-sm text-white outline-none transition duration-[250ms] placeholder:text-[#747474] focus:border-acento focus:shadow-[0_0_0_3px_rgba(255,90,0,.08)]";
 const labelClase = "mb-2.5 block text-[13px] text-[#ccc]";
-const enlaceClase = "font-semibold text-acento hover:underline";
 
 export default function Login() {
   const [verPassword, setVerPassword] = useState(false);
@@ -151,13 +144,10 @@ export default function Login() {
               </div>
             </div>
 
-            <div className="mb-8 mt-[5px] flex items-center justify-between max-[480px]:gap-[15px]">
-              <label className="flex cursor-pointer items-center gap-2 text-[13px] text-[#bbb]">
-                <input type="checkbox" className="size-[18px] accent-acento" />
-                <span>Recordarme</span>
-              </label>
-              <a href="#" className={`${enlaceClase} text-xs`}>¿Olvidaste tu contraseña?</a>
-            </div>
+            <p className="mb-8 mt-[5px] text-right text-xs text-[#9a9a9a]">
+              ¿Olvidaste tu contraseña?{" "}
+              <span className="font-semibold text-acento">Acude a recepción.</span>
+            </p>
 
             <button
               type="submit"
@@ -166,25 +156,6 @@ export default function Login() {
             >
               {loading ? "Iniciando..." : "Iniciar sesión"}
             </button>
-
-            <div className="my-8 flex items-center gap-[15px]">
-              <span className="h-px flex-1 bg-[#272727]" />
-              <p className="whitespace-nowrap text-xs text-[#777]">o continúa con</p>
-              <span className="h-px flex-1 bg-[#272727]" />
-            </div>
-
-            <div className="flex justify-center gap-[35px] max-[480px]:gap-5">
-              {redes.map(({ nombre, Icono, color }) => (
-                <button
-                  key={nombre}
-                  type="button"
-                  aria-label={`Continuar con ${nombre}`}
-                  className={`grid size-[60px] cursor-pointer place-items-center rounded-[9px] border border-[#25282b] bg-[#0d1012] text-[23px] transition duration-[250ms] hover:-translate-y-[3px] hover:border-acento max-[480px]:size-[55px] ${color}`}
-                >
-                  <Icono />
-                </button>
-              ))}
-            </div>
 
             <div className="mt-[50px] text-center">
               <p className="text-[13px] text-[#9a9a9a]">

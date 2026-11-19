@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
 import Inicio from "./pages/Inicio.jsx";
 import Deportes from "./pages/Deportes.jsx";
@@ -13,9 +13,7 @@ import Recepcionista from "./pages/Recepcionista.jsx";
 import Socio from "./pages/Socio.jsx";
 import Instructor from "./pages/Instructor.jsx";
 import ClasesInstructor from "./pages/ClasesInstructor.jsx";
-import SociosInscritos from "./pages/SociosInscritos.jsx";
 import PaseLista from "./pages/PaseLista.jsx";
-import SeccionDashboardPorRol from "./components/SeccionDashboardPorRol.jsx";
 import InscripcionRecepcion from "./pages/InscripcionRecepcion.jsx";
 import SociosRecepcion from "./pages/SociosRecepcion.jsx";
 import SesionesRecepcion from "./pages/SesionesRecepcion.jsx";
@@ -24,7 +22,20 @@ import HorariosSocio from "./pages/HorariosSocio.jsx";
 import AccesoDenegado from "./pages/AccesoDenegado.jsx";
 import MisActividades from "./pages/MisActividades.jsx";
 import MiHorario from "./pages/MiHorario.jsx";
-import SelectorSesionQR from "./pages/SelectorSesionQR.jsx";
+import MisInscripciones from "./pages/MisInscripciones.jsx";
+import HorariosInstructor from "./pages/HorariosInstructor.jsx";
+
+// Redirige conservando los parámetros de la URL (p. ej. ?sesionId=)
+function RedirigirConParametros({ a }) {
+  const { search } = useLocation();
+  return <Navigate to={`${a}${search}`} replace />;
+}
+
+// /recepcionista/<seccion> → /recepcion/<seccion>
+function RedirigirRecepcion() {
+  const { seccion } = useParams();
+  return <Navigate to={`/recepcion/${seccion}`} replace />;
+}
 
 export default function App() {
   return (
@@ -49,16 +60,18 @@ export default function App() {
         <Route path="socio/horarios" element={<HorariosSocio />} />
         <Route path="socio/actividades" element={<MisActividades />} />
         <Route path="socio/mi-horario" element={<MiHorario />} />
-        <Route path="socio/:seccion" element={<SeccionDashboardPorRol rol="socio" />} />
+        <Route path="socio/inscripciones" element={<MisInscripciones />} />
+        <Route path="socio/:seccion" element={<Navigate to="/socio" replace />} />
       </Route>
 
       {/* RUTAS PROTEGIDAS PARA INSTRUCTORES */}
-      <Route element={<ProtectedRoute rolesPermitidos={['instructor', 'coach']} />}>
+      <Route element={<ProtectedRoute rolesPermitidos={['coach']} />}>
         <Route path="instructor" element={<Instructor />} />
         <Route path="instructor/clases" element={<ClasesInstructor />} />
-        <Route path="instructor/alumnos" element={<SociosInscritos />} />
+        <Route path="instructor/alumnos" element={<RedirigirConParametros a="/instructor/asistencia" />} />
         <Route path="instructor/asistencia" element={<PaseLista />} />
-        <Route path="instructor/:seccion" element={<SeccionDashboardPorRol rol="instructor" />} />
+        <Route path="instructor/horarios" element={<HorariosInstructor />} />
+        <Route path="instructor/:seccion" element={<Navigate to="/instructor" replace />} />
       </Route>
 
       {/* RUTAS PROTEGIDAS PARA RECEPCIONISTAS/ADMINISTRADORES */}
@@ -67,11 +80,11 @@ export default function App() {
         <Route path="recepcion/socios" element={<SociosRecepcion />} />
         <Route path="recepcion/inscripciones" element={<InscripcionRecepcion />} />
         <Route path="recepcion/actividades" element={<SesionesRecepcion />} />
-        <Route path="recepcion/inscripcion-qr" element={<SelectorSesionQR />} />
-        <Route path="recepcion/:seccion" element={<SeccionDashboardPorRol rol="recepcionista" />} />
+        <Route path="recepcion/inscripcion-qr" element={<Navigate to="/recepcion/inscripciones?metodo=qr" replace />} />
+        <Route path="recepcion/:seccion" element={<Navigate to="/recepcion" replace />} />
         <Route path="recepcionista" element={<Navigate to="/recepcion" replace />} />
         <Route path="recepcionista/inscripciones" element={<Navigate to="/recepcion/inscripciones" replace />} />
-        <Route path="recepcionista/:seccion" element={<Navigate to="/recepcion/:seccion" replace />} />
+        <Route path="recepcionista/:seccion" element={<RedirigirRecepcion />} />
       </Route>
     </Routes>
   );

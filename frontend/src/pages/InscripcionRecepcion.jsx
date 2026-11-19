@@ -1,11 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FaKeyboard, FaQrcode } from "react-icons/fa6";
 import { useSearchParams } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout.jsx";
 import { menus } from "../components/menus.js";
-import { parsearFechaPg } from "../utils/formato.js";
+import SelectorSesion from "../components/SelectorSesion.jsx";
+import PildoraMetodo from "../components/PildoraMetodo.jsx";
+import InscripcionQR from "../components/InscripcionQR.jsx";
+import { useSesionesSemana } from "../hooks/useSesionesSemana.js";
+import { HORA_24, formatearHorasPg } from "../utils/formato.js";
+import { hoyISO } from "../utils/fechas.js";
 import "../assets/InscripcionRecepcion.css";
 import {
   buscarSocios,
+  obtenerClasesRecepcion,
   obtenerSesiones,
   registrarInscripcion,
 } from "../services/inscripciones.js";
@@ -13,33 +20,37 @@ import {
 // Menú de Recepcionista
 const { opciones } = menus.recepcionista;
 
-// Formatea una sesión disponible para mostrar en el selector
-function formatearSesion(sesion) {
-  const inicio = parsearFechaPg(sesion.inicio);
-  const fin = parsearFechaPg(sesion.fin);
-  const fechaStr = inicio.toLocaleDateString("es-MX", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-  const horaInicio = inicio.toLocaleTimeString("es-MX", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const horaFin = fin.toLocaleTimeString("es-MX", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const lugar = sesion.lugar ? ` · ${sesion.lugar}` : "";
-  return `${sesion.actividad} — ${fechaStr} ${horaInicio}–${horaFin} | ${sesion.coach}${lugar} (${sesion.cupos_disponibles} cupos)`;
+const etiquetaHora = (s) => formatearHorasPg(s.inicio, s.fin);
+
+// Método de inscripción: se recuerda el último usado; la primera vez es QR
+const CLAVE_METODO = "sigac:metodoInscripcion";
+const METODOS = [
+  { valor: "manual", etiqueta: "Manual", Icono: FaKeyboard },
+  { valor: "qr", etiqueta: "Código QR", Icono: FaQrcode },
+];
+const esMetodo = (m) => m === "manual" || m === "qr";
+
+function metodoInicial(searchParams) {
+  const enUrl = searchParams.get("metodo");
+  if (esMetodo(enUrl)) return enUrl;
+  // ?q= viene de Socios y precarga el buscador manual
+  if (searchParams.get("q")) return "manual";
+  const guardado = localStorage.getItem(CLAVE_METODO);
+  return esMetodo(guardado) ? guardado : "qr";
 }
 
 export default function InscripcionRecepcion() {
   // Permite llegar con una búsqueda precargada (?q=...) desde la vista de socios
-  const [searchParams] = useSearchParams();
+  // o con una sesión preseleccionada (?sesionId=...&fecha=...) desde Actividades
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [metodo, setMetodo] = useState(() => metodoInicial(searchParams));
+  // true mientras el lector QR tiene la cámara activa o procesa una lectura
+  const [lectorOcupado, setLectorOcupado] = useState(false);
   const [busqueda, setBusqueda] = useState(() => searchParams.get("q") || "");
   const [socioSeleccionado, setSocioSeleccionado] = useState(null);
-  const [sesionSeleccionada, setSesionSeleccionada] = useState("");
+  const [sesionSeleccionada, setSesionSeleccionada] = useState(
+    () => searchParams.get("sesionId") || ""
+  );
   const [mostrarSugerencias, setMostrarSugerencias] = useState(
     () => Boolean(searchParams.get("q"))
   );
@@ -48,39 +59,33 @@ export default function InscripcionRecepcion() {
 
   // Resultados de la API
   const [sociosFiltrados, setSociosFiltrados] = useState([]);
-  const [sesiones, setSesiones] = useState([]);
+
+  // Clases y sesiones disponibles, cargadas por semana
+  const semana = useSesionesSemana({
+    cargarSesiones: obtenerSesiones,
+    cargarClases: obtenerClasesRecepcion,
+  });
+  const { sesiones, listo, recargar, irAFecha } = semana;
+
+  // Si llega una sesión preseleccionada, carga la semana de su fecha
+  useEffect(() => {
+    const fecha = searchParams.get("fecha");
+    if (fecha) irAFecha(fecha);
+    // Solo al montar: la navegación posterior la controla el selector
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Estados de carga
   const [cargandoSocios, setCargandoSocios] = useState(false);
-  const [cargandoSesiones, setCargandoSesiones] = useState(true);
   const [enviando, setEnviando] = useState(false);
 
   const debounceRef = useRef(null);
   const ultimaBusqueda = useRef(0);
   const componenteActivo = useRef(false);
 
-  // Cargar sesiones disponibles al montar el componente
+  // Marca el componente como montado (las sesiones las carga useSesionesSemana)
   useEffect(() => {
     componenteActivo.current = true;
-
-    async function cargarSesiones() {
-      setCargandoSesiones(true);
-      try {
-        const datos = await obtenerSesiones();
-        if (!componenteActivo.current) return;
-        setSesiones(Array.isArray(datos) ? datos : []);
-      } catch (err) {
-        if (!componenteActivo.current) return;
-        setMensaje(err.message || "No se pudieron cargar las sesiones.");
-        setTipoMensaje("error");
-      } finally {
-        if (componenteActivo.current) {
-          setCargandoSesiones(false);
-        }
-      }
-    }
-
-    cargarSesiones();
 
     return () => {
       componenteActivo.current = false;
@@ -203,13 +208,7 @@ export default function InscripcionRecepcion() {
       setSesionSeleccionada("");
       setMostrarSugerencias(false);
 
-      obtenerSesiones()
-        .then((datos) => {
-          if (componenteActivo.current && Array.isArray(datos)) {
-            setSesiones(datos);
-          }
-        })
-        .catch(() => {});
+      recargar();
     } catch (err) {
       setMensaje(
         err.message || "Ocurrió un error al registrar la inscripción."
@@ -225,6 +224,28 @@ export default function InscripcionRecepcion() {
   const sesionActual = sesiones.find(
     (s) => String(s.sesion_id) === sesionSeleccionada
   );
+
+  // Cambia el método: lo recuerda y lo refleja en la URL sin perder otros parámetros
+  function cambiarMetodo(nuevo) {
+    setMetodo(nuevo);
+    localStorage.setItem(CLAVE_METODO, nuevo);
+    setSearchParams(
+      (actuales) => {
+        const params = new URLSearchParams(actuales);
+        params.set("metodo", nuevo);
+        return params;
+      },
+      { replace: true }
+    );
+  }
+
+  const alCambiarLector = useCallback((ocupado) => setLectorOcupado(ocupado), []);
+
+  const cambiarSesion = (id) => {
+    setSesionSeleccionada(id);
+    setMensaje("");
+    setTipoMensaje("");
+  };
 
   const nombreSocio = socioSeleccionado
     ? [
@@ -243,13 +264,48 @@ export default function InscripcionRecepcion() {
       opciones={opciones}
     >
       <div className="inscripcion-contenedor">
-        <h2>Nueva inscripción</h2>
+        <h2>Inscripción de socios</h2>
 
         <p>
-          Busca al socio que deseas inscribir y selecciona
-          la sesión disponible correspondiente.
+          Elige el método, selecciona la sesión disponible e identifica
+          al socio buscándolo o escaneando su credencial QR.
         </p>
 
+        <PildoraMetodo
+          opciones={METODOS}
+          valor={metodo}
+          onCambiar={cambiarMetodo}
+          disabled={lectorOcupado || enviando}
+          etiqueta="Método de inscripción"
+        />
+
+        {/* SESIÓN (común a ambos métodos) */}
+        <div className="inscripcion-formulario inscripcion-sesion">
+          <SelectorSesion
+            {...semana}
+            sesionId={sesionSeleccionada}
+            onCambiar={cambiarSesion}
+            etiquetaHora={etiquetaHora}
+            idBase="seleccionar-sesion"
+            minFecha={hoyISO()}
+            disabled={!listo || enviando || lectorOcupado}
+            permitirVacio
+            placeholderClase={
+              !listo ? "Cargando sesiones…" : "Selecciona una clase"
+            }
+          />
+        </div>
+
+        {metodo === "qr" ? (
+          <div className="inscripcion-qr">
+            <InscripcionQR
+              key={sesionSeleccionada}
+              sesion={sesionActual}
+              onEstadoCambia={alCambiarLector}
+              onInscrito={recargar}
+            />
+          </div>
+        ) : (
         <form
           className="inscripcion-formulario"
           onSubmit={confirmarInscripcion}
@@ -327,32 +383,6 @@ export default function InscripcionRecepcion() {
             </p>
           )}
 
-          {/* SESIÓN DISPONIBLE */}
-          <label htmlFor="seleccionar-sesion">Sesión disponible</label>
-
-          <select
-            id="seleccionar-sesion"
-            value={sesionSeleccionada}
-            disabled={cargandoSesiones || enviando}
-            onChange={(e) => {
-              setSesionSeleccionada(e.target.value);
-              setMensaje("");
-              setTipoMensaje("");
-            }}
-          >
-            <option value="">
-              {cargandoSesiones
-                ? "Cargando sesiones…"
-                : "Selecciona una sesión"}
-            </option>
-
-            {sesiones.map((sesion) => (
-              <option key={sesion.sesion_id} value={sesion.sesion_id}>
-                {formatearSesion(sesion)}
-              </option>
-            ))}
-          </select>
-
           {/* RESUMEN */}
           {socioSeleccionado && sesionActual && (
             <div className="resumen-inscripcion">
@@ -369,11 +399,8 @@ export default function InscripcionRecepcion() {
 
               <p>
                 <strong>Horario:</strong>{" "}
-                {new Date(sesionActual.inicio).toLocaleString("es-MX")} –{" "}
-                {new Date(sesionActual.fin).toLocaleTimeString("es-MX", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {new Date(sesionActual.inicio).toLocaleString("es-MX", { hourCycle: "h23" })} –{" "}
+                {new Date(sesionActual.fin).toLocaleTimeString("es-MX", HORA_24)}
               </p>
 
               <p>
@@ -397,7 +424,7 @@ export default function InscripcionRecepcion() {
           <button
             type="submit"
             className="boton-inscripcion"
-            disabled={enviando || cargandoSesiones}
+            disabled={enviando || !listo}
           >
             {enviando ? "Registrando…" : "Confirmar inscripción"}
           </button>
@@ -412,6 +439,7 @@ export default function InscripcionRecepcion() {
             </p>
           )}
         </form>
+        )}
       </div>
     </DashboardLayout>
   );

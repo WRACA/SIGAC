@@ -36,6 +36,7 @@ pub struct UsuarioLogin {
     pub correo: String,
     pub rol: String,
     pub password: String, // aquí viene el hash guardado en la BD
+    pub activo: bool,
 }
 
 #[derive(serde::Serialize,sqlx::FromRow)]
@@ -48,6 +49,56 @@ pub struct Actividad{
     pub hora_fin: String,
     pub lugar: Option<String>,
     pub coach: String,
+}
+
+// Rango opcional de fechas locales (YYYY-MM-DD) para consultar sesiones por bloques.
+#[derive(Deserialize)]
+pub struct RangoFechas {
+    pub desde: Option<String>,
+    pub hasta: Option<String>,
+}
+
+impl RangoFechas {
+    // Devuelve un mensaje de error si alguna fecha no tiene el formato YYYY-MM-DD
+    // o no es una fecha real.
+    pub fn validar(&self) -> Result<(), String> {
+        for fecha in [&self.desde, &self.hasta].into_iter().flatten() {
+            if !fecha_valida(fecha) {
+                return Err(format!("Fecha inválida: {fecha}. Usa el formato AAAA-MM-DD"));
+            }
+        }
+        Ok(())
+    }
+}
+
+fn fecha_valida(fecha: &str) -> bool {
+    let partes: Vec<&str> = fecha.split('-').collect();
+    let [anio, mes, dia] = partes.as_slice() else {
+        return false;
+    };
+    if anio.len() != 4 || mes.len() != 2 || dia.len() != 2 {
+        return false;
+    }
+    let (Ok(anio), Ok(mes), Ok(dia)) = (anio.parse::<u32>(), mes.parse::<u32>(), dia.parse::<u32>())
+    else {
+        return false;
+    };
+    let bisiesto = (anio % 4 == 0 && anio % 100 != 0) || anio % 400 == 0;
+    let dias_mes = match mes {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if bisiesto => 29,
+        2 => 28,
+        _ => return false,
+    };
+    anio >= 1 && (1..=dias_mes).contains(&dia)
+}
+
+// Clase (actividad) disponible para el selector, con el día sugerido al elegirla
+#[derive(Serialize, sqlx::FromRow)]
+pub struct ClaseResumen {
+    pub actividad: String,
+    pub fecha_sugerida: String,
 }
 
 // Parámetro de búsqueda recibido por la URL
@@ -72,6 +123,7 @@ pub struct SocioBusqueda {
 pub struct ActividadInscripcion {
     pub sesion_id: i64,
     pub actividad: String,
+    pub fecha: String,
     pub inicio: String,
     pub fin: String,
     pub coach: String,

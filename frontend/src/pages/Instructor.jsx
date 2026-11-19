@@ -3,6 +3,7 @@ import DashboardLayout from "../components/DashboardLayout.jsx";
 import { menus } from "../components/menus.js";
 import { useSesionesInstructor } from "../hooks/useSesionesInstructor.js";
 import { formatearFecha, formatearHora } from "../utils/formato.js";
+import { getUsuario } from "../services/api.js";
 
 const { nombre: rol, opciones } = menus.instructor;
 
@@ -18,13 +19,14 @@ function sesionesDeLaSemana(sesiones) {
 
 export default function Instructor() {
   const { sesiones, cargando, error } = useSesionesInstructor();
+  const nombre = getUsuario()?.nombre;
 
   const enCurso = sesiones.find((s) => s.en_curso);
   const proxima = sesiones.find((s) => !s.en_curso);
 
   return (
     <DashboardLayout titulo="Panel de Instructor" rol={rol} opciones={opciones}>
-      <h2>¡Bienvenido, instructor!</h2>
+      <h2>{nombre ? `¡Hola, ${nombre}!` : "¡Bienvenido, instructor!"}</h2>
 
       <p>
         Consulta tus clases asignadas, revisa a los alumnos inscritos
@@ -67,7 +69,7 @@ export default function Instructor() {
                   className="dashboard-enlace-boton"
                   style={{ marginTop: 12 }}
                 >
-                  Pasar lista
+                  Asistencia
                 </Link>
               </>
             ) : (

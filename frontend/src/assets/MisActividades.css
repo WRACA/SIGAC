@@ -117,3 +117,15 @@
     padding: 18px;
   }
 }
+
+/* Enlace al historial ("Mis inscripciones") */
+.mis-actividades-encabezado a,
+.mis-actividades-estado a {
+  color: #ff7a32;
+  font-weight: 600;
+}
+
+.mis-actividades-encabezado a:hover,
+.mis-actividades-estado a:hover {
+  text-decoration: underline;
+}

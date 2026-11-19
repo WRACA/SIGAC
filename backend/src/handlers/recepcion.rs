@@ -8,12 +8,15 @@ use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 
 use crate::{
     AppState,
+    cierre::cerrar_sesiones_terminadas,
     errors::{error_interno, ApiError},
     handlers::auth::Claims,
     models::{
     BuscarSociosQuery,
     SocioBusqueda,
     ActividadInscripcion,
+    ClaseResumen,
+    RangoFechas,
     ResumenRecepcion,
     SesionRecepcion,
     DashboardRecepcion,
@@ -124,12 +127,8 @@ pub async fn buscar_socios(
     Ok(Json(socios))
 }
 
-// GET /api/recepcion/actividades
-pub async fn actividades_inscripcion(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> Result<Json<Vec<ActividadInscripcion>>, ApiError> {
-
+// Valida el JWT y que el usuario sea recepcionista o administrador activo.
+async fn autorizar_recepcion(state: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
     // 1. Obtener el token JWT
     let token = headers
         .get(header::AUTHORIZATION)
@@ -181,43 +180,97 @@ pub async fn actividades_inscripcion(
         ));
     }
 
-    // 4. Consultar sesiones disponibles
-    let actividades = sqlx::query_as::<_, ActividadInscripcion>(
+    Ok(())
+}
+
+// FROM/WHERE común de las sesiones en las que se puede inscribir:
+// programadas, futuras, de actividades vigentes, con coach activo y con cupo.
+const FROM_SESIONES_DISPONIBLES: &str = r#"
+    FROM sesion s
+    JOIN actividad a ON s.actividad_id = a.id
+    JOIN coach c ON s.coach_id = c.id
+    JOIN usuario u ON c.usuario_id = u.id
+    LEFT JOIN (
+        SELECT
+            sesion_id,
+            COUNT(*) AS ocupados
+        FROM inscripcion
+        WHERE estado IN ('inscrito', 'asistio')
+        GROUP BY sesion_id
+    ) i ON i.sesion_id = s.id
+    WHERE s.estado = 'programada'
+      AND s.inicio > NOW()
+      AND a.eliminado_en IS NULL
+      AND u.activo = TRUE
+      AND s.cupo::bigint > COALESCE(i.ocupados, 0)
+"#;
+
+// GET /api/recepcion/actividades
+// Acepta un rango opcional ?desde=YYYY-MM-DD&hasta=YYYY-MM-DD (fechas locales).
+pub async fn actividades_inscripcion(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(rango): Query<RangoFechas>,
+) -> Result<Json<Vec<ActividadInscripcion>>, ApiError> {
+    rango.validar().map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+
+    autorizar_recepcion(&state, &headers).await?;
+
+    // Consultar sesiones disponibles (dentro del rango, si se envió)
+    let consulta = format!(
         r#"
         SELECT
             s.id AS sesion_id,
             a.nombre AS actividad,
+            TO_CHAR(s.inicio AT TIME ZONE 'America/Mexico_City', 'YYYY-MM-DD') AS fecha,
             s.inicio::text AS inicio,
             s.fin::text AS fin,
             CONCAT_WS(' ', u.nombre, u.apellido_p, u.apellido_m) AS coach,
             s.lugar,
             s.cupo,
             s.cupo::bigint - COALESCE(i.ocupados, 0) AS cupos_disponibles
-        FROM sesion s
-        JOIN actividad a ON s.actividad_id = a.id
-        JOIN coach c ON s.coach_id = c.id
-        JOIN usuario u ON c.usuario_id = u.id
-        LEFT JOIN (
-            SELECT
-                sesion_id,
-                COUNT(*) AS ocupados
-            FROM inscripcion
-            WHERE estado IN ('inscrito', 'asistio')
-            GROUP BY sesion_id
-        ) i ON i.sesion_id = s.id
-        WHERE s.estado = 'programada'
-          AND s.inicio > NOW()
-          AND a.eliminado_en IS NULL
-          AND u.activo = TRUE
-          AND s.cupo::bigint > COALESCE(i.ocupados, 0)
+        {FROM_SESIONES_DISPONIBLES}
+          AND ($1::text IS NULL
+               OR (s.inicio AT TIME ZONE 'America/Mexico_City')::date >= $1::date)
+          AND ($2::text IS NULL
+               OR (s.inicio AT TIME ZONE 'America/Mexico_City')::date <= $2::date)
         ORDER BY s.inicio
         "#
-    )
+    );
+    let actividades = sqlx::query_as::<_, ActividadInscripcion>(&consulta)
+    .bind(&rango.desde)
+    .bind(&rango.hasta)
     .fetch_all(&state.api_pool)
     .await
     .map_err(error_interno)?;
 
     Ok(Json(actividades))
+}
+
+// GET /api/recepcion/clases
+// Clases con sesiones disponibles para inscripción y el día de su próxima sesión.
+pub async fn clases_inscripcion(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<ClaseResumen>>, ApiError> {
+    autorizar_recepcion(&state, &headers).await?;
+
+    let consulta = format!(
+        r#"
+        SELECT
+            a.nombre AS actividad,
+            TO_CHAR(MIN(s.inicio) AT TIME ZONE 'America/Mexico_City', 'YYYY-MM-DD') AS fecha_sugerida
+        {FROM_SESIONES_DISPONIBLES}
+        GROUP BY a.nombre
+        ORDER BY a.nombre
+        "#
+    );
+    let clases = sqlx::query_as::<_, ClaseResumen>(&consulta)
+    .fetch_all(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    Ok(Json(clases))
 }
 
 use crate::models::{InscripcionRequest, InscripcionResponse,PlanRecepcion};
@@ -548,6 +601,9 @@ pub async fn dashboard_recepcion(
         ));
     }
 
+    // Marcar faltas y sesiones realizadas antes de mostrar estados
+    cerrar_sesiones_terminadas(&state.api_pool).await;
+
     // 3. Obtener los indicadores generales
     let resumen = sqlx::query_as::<_, ResumenRecepcion>(
         r#"
@@ -611,12 +667,12 @@ pub async fn dashboard_recepcion(
             s.cupo,
 
             COUNT(i.id) FILTER (
-                WHERE i.estado IN ('inscrito', 'asistio')
+                WHERE i.estado IN ('inscrito', 'asistio', 'falta')
             )::bigint AS total_inscritos,
 
             GREATEST(
                 s.cupo::bigint - COUNT(i.id) FILTER (
-                    WHERE i.estado IN ('inscrito', 'asistio')
+                    WHERE i.estado IN ('inscrito', 'asistio', 'falta')
                 ),
                 0
             )::bigint AS cupos_disponibles,
@@ -666,12 +722,12 @@ pub async fn dashboard_recepcion(
             s.cupo,
 
             COUNT(i.id) FILTER (
-                WHERE i.estado IN ('inscrito', 'asistio')
+                WHERE i.estado IN ('inscrito', 'asistio', 'falta')
             )::bigint AS total_inscritos,
 
             GREATEST(
                 s.cupo::bigint - COUNT(i.id) FILTER (
-                    WHERE i.estado IN ('inscrito', 'asistio')
+                    WHERE i.estado IN ('inscrito', 'asistio', 'falta')
                 ),
                 0
             )::bigint AS cupos_disponibles,

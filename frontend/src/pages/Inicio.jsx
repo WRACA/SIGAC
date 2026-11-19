@@ -70,8 +70,8 @@ export default function Inicio() {
             dentro y fuera de la cancha.
           </p>
           <div className="flex flex-wrap gap-4">
-            <Boton to="/membresias">Únete ahora</Boton>
-            <Boton to="/nosotros" variante="borde">Conoce más →</Boton>
+            <Boton to="/login">Únete ahora</Boton>
+            <Boton to="/deportes" variante="borde">Conoce más →</Boton>
           </div>
         </div>
 
@@ -130,7 +130,7 @@ export default function Inicio() {
             Canchas, gimnasio, alberca y más. Instalaciones modernas para una
             experiencia completa.
           </p>
-          <Boton to="/instalaciones" variante="borde-naranja">
+          <Boton to="/deportes" variante="borde-naranja">
             Explora instalaciones →
           </Boton>
         </div>

@@ -11,6 +11,7 @@ use crate::{
     errors::{error_interno, ApiError},
     handlers::auth::Claims,
     models::InscripcionSocio,
+    cierre::cerrar_sesiones_terminadas,
 };
 
 // GET /api/socio/inscripciones
@@ -53,6 +54,9 @@ pub async fn obtener_inscripciones(
             "Esta función es exclusiva para socios".to_string(),
         ));
     }
+
+    // Marcar faltas y sesiones realizadas antes de mostrar estados
+    cerrar_sesiones_terminadas(&state.api_pool).await;
 
     // 4. Consultar las inscripciones del socio autenticado
     let inscripciones = sqlx::query_as::<_, InscripcionSocio>(

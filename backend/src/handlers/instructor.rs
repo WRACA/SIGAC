@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{header, HeaderMap, StatusCode},
     Json,
 };
@@ -10,9 +10,10 @@ use crate::{
     handlers::auth::Claims,
     models::{
         AlumnoClase, AsistenciaQrRequest, AsistenciaRequest, AsistenciaResponse,
-        InscritoSesion, SesionDetalleInstructor, SesionInstructor,
+        ClaseResumen, InscritoSesion, RangoFechas, SesionDetalleInstructor, SesionInstructor,
     },
     qr,
+    cierre::cerrar_sesiones_terminadas,
 };
 // Columnas comunes de una sesión del instructor (deben coincidir con `SesionInstructor`).
 // Requiere los alias `s` (sesion), `a` (actividad) e `i` (conteo de inscritos).
@@ -51,15 +52,18 @@ const FROM_SESION: &str = r#"
     LEFT JOIN (
         SELECT sesion_id, COUNT(*) AS ocupados
         FROM inscripcion
-        WHERE estado IN ('inscrito', 'asistio')
+        WHERE estado IN ('inscrito', 'asistio', 'falta')
         GROUP BY sesion_id
     ) i ON i.sesion_id = s.id
 "#;
 // GET /api/instructor/sesiones
+//      Acepta un rango opcional ?desde=YYYY-MM-DD&hasta=YYYY-MM-DD (fechas locales).
 pub async fn consultar_sesiones(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Query(rango): Query<RangoFechas>,
 ) -> Result<Json<Vec<SesionInstructor>>, ApiError> {
+    rango.validar().map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 // 1. Obtener el token JWT
     let token = headers
         .get(header::AUTHORIZATION)
@@ -114,14 +118,21 @@ pub async fn consultar_sesiones(
             "No tienes un perfil de instructor activo".to_string(),
         ));
     }
-// 5. Consultar todas las sesiones del instructor (en curso, próximas y finalizadas).
-//    Las clases en curso van primero; el resto en orden cronológico.
+    // Marcar faltas y sesiones realizadas antes de mostrar estados
+    cerrar_sesiones_terminadas(&state.api_pool).await;
+// 5. Consultar las sesiones del instructor (en curso, próximas y finalizadas),
+//    limitadas al rango de fechas si se envió. Las clases en curso van primero;
+//    el resto en orden cronológico.
     let consulta = format!(
         r#"
         SELECT {COLUMNAS_SESION}
         {FROM_SESION}
         WHERE c.usuario_id = $1
           AND a.eliminado_en IS NULL
+          AND ($2::text IS NULL
+               OR (s.inicio AT TIME ZONE 'America/Mexico_City')::date >= $2::date)
+          AND ($3::text IS NULL
+               OR (s.inicio AT TIME ZONE 'America/Mexico_City')::date <= $3::date)
         ORDER BY
             CASE
                 WHEN s.estado <> 'cancelada'
@@ -134,11 +145,52 @@ pub async fn consultar_sesiones(
     );
     let sesiones = sqlx::query_as::<_, SesionInstructor>(&consulta)
     .bind(datos.claims.id)
+    .bind(&rango.desde)
+    .bind(&rango.hasta)
     .fetch_all(&state.api_pool)
     .await
     .map_err(error_interno)?;
 // 6. Devolver las sesiones en JSON
     Ok(Json(sesiones))
+}
+
+// GET /api/instructor/clases
+// Clases (actividades) del instructor para el selector, sin contar sesiones canceladas.
+// `fecha_sugerida` es el día de la sesión en curso o próxima; si ya no tiene,
+// el de la última sesión finalizada.
+pub async fn consultar_clases(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<ClaseResumen>>, ApiError> {
+    let (usuario_id, _) = autenticar_coach(&state, &headers).await?;
+
+    let clases = sqlx::query_as::<_, ClaseResumen>(
+        r#"
+        SELECT
+            a.nombre AS actividad,
+            TO_CHAR(
+                COALESCE(
+                    MIN(s.inicio) FILTER (WHERE s.fin > statement_timestamp()),
+                    MAX(s.inicio)
+                ) AT TIME ZONE 'America/Mexico_City',
+                'YYYY-MM-DD'
+            ) AS fecha_sugerida
+        FROM sesion s
+        JOIN actividad a ON s.actividad_id = a.id
+        JOIN coach c ON s.coach_id = c.id
+        WHERE c.usuario_id = $1
+          AND a.eliminado_en IS NULL
+          AND s.estado <> 'cancelada'
+        GROUP BY a.nombre
+        ORDER BY a.nombre
+        "#
+    )
+    .bind(usuario_id)
+    .fetch_all(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    Ok(Json(clases))
 }
 // GET /api/instructor/sesiones/{id}
 pub async fn consultar_detalle_sesion(
@@ -175,6 +227,8 @@ pub async fn consultar_detalle_sesion(
             "Esta función es exclusiva para instructores".to_string(),
         ));
     }
+    // Marcar faltas y sesiones realizadas antes de mostrar estados
+    cerrar_sesiones_terminadas(&state.api_pool).await;
 // 2. Consultar la sesión asignada al coach (solo si está activo)
     let consulta = format!(
         r#"
@@ -213,7 +267,7 @@ pub async fn consultar_detalle_sesion(
         JOIN socio so ON i.socio_id = so.id
         JOIN usuario u ON so.usuario_id = u.id
         WHERE i.sesion_id = $1
-          AND i.estado IN ('inscrito', 'asistio')
+          AND i.estado IN ('inscrito', 'asistio', 'falta')
         ORDER BY u.nombre, u.apellido_p
         "#
     )
@@ -586,6 +640,8 @@ pub async fn consultar_inscritos(
             "No tienes un perfil de instructor activo".to_string(),
         ));
     };
+    // Marcar faltas y sesiones realizadas antes de mostrar estados
+    cerrar_sesiones_terminadas(&state.api_pool).await;
 // 5. Verificar que la sesión exista y pertenezca al instructor
     let propietario = sqlx::query_scalar::<_, i32>(
         "SELECT coach_id FROM sesion WHERE id = $1"

@@ -7,7 +7,6 @@ export const menus = {
       { nombre: "Inicio", ruta: "/recepcion" },
       { nombre: "Socios", ruta: "/recepcion/socios" },
       { nombre: "Inscripciones", ruta: "/recepcion/inscripciones" },
-      { nombre: "Inscripción QR", ruta: "/recepcion/inscripcion-qr" },
       { nombre: "Actividades", ruta: "/recepcion/actividades" },
     ],
   },
@@ -27,10 +26,8 @@ export const menus = {
     opciones: [
       { nombre: "Inicio", ruta: "/instructor" },
       { nombre: "Mis clases", ruta: "/instructor/clases" },
-      { nombre: "Pase de lista", ruta: "/instructor/asistencia" },
-      { nombre: "Mis alumnos", ruta: "/instructor/alumnos" },
+      { nombre: "Asistencia", ruta: "/instructor/asistencia" },
       { nombre: "Mis horarios", ruta: "/instructor/horarios" },
-      { nombre: "Mi perfil", ruta: "/instructor/perfil" },
     ],
   },
 };

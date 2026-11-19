@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { obtenerSesionesInstructor } from "../services/asistencias.js";
-import { formatearFecha, formatearHora } from "../utils/formato.js";
 
 // Carga las sesiones vigentes del instructor autenticado.
 export function useSesionesInstructor() {
@@ -43,10 +42,3 @@ export function useSesionesInstructor() {
   return { sesiones, cargando, error };
 }
 
-// Texto corto para identificar una sesión en un selector
-export function etiquetaSesion(sesion) {
-  const enCurso = sesion.en_curso ? " · EN CURSO" : "";
-  return `${sesion.actividad} — ${formatearFecha(sesion.fecha)} ${formatearHora(
-    sesion.hora_inicio
-  )}–${formatearHora(sesion.hora_fin)}${enCurso}`;
-}

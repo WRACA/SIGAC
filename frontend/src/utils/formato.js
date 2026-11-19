@@ -38,6 +38,9 @@ export function parsearFechaPg(valor) {
   );
 }
 
+// Opciones de hora en formato de 24 h ("08:00", "17:30"), usadas en todo el sistema
+export const HORA_24 = { hour: "2-digit", minute: "2-digit", hourCycle: "h23" };
+
 // Fecha/hora de PostgreSQL -> texto legible
 export function formatearFechaHora(valor) {
   if (!valor) return "";
@@ -47,9 +50,20 @@ export function formatearFechaHora(valor) {
     weekday: "short",
     day: "numeric",
     month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
+    ...HORA_24,
   });
+}
+
+// Horario "08:00–09:00" a partir de horas "HH:MM[:SS]"
+export function rangoHoras(horaInicio, horaFin) {
+  return `${formatearHora(horaInicio)}–${formatearHora(horaFin)}`;
+}
+
+// Horario a partir de inicio y fin de PostgreSQL (timestamptz)
+export function formatearHorasPg(inicio, fin) {
+  return `${parsearFechaPg(inicio).toLocaleTimeString("es-MX", HORA_24)}–${parsearFechaPg(
+    fin
+  ).toLocaleTimeString("es-MX", HORA_24)}`;
 }
 
 // Une nombre y apellidos ignorando vacíos
@@ -63,4 +77,10 @@ export const ESTADO_INSCRIPCION = {
   asistio: "Asistió",
   falta: "Falta",
   cancelada: "Cancelada",
+};
+
+// Textos legibles para el tipo de acceso de una inscripción
+export const TIPO_ACCESO = {
+  membresia: "Por membresía",
+  pago: "Pago por sesión",
 };
