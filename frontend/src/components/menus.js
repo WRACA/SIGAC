@@ -1,0 +1,33 @@
+// Menús laterales del dashboard por rol (fuente única).
+
+export const menus = {
+  recepcionista: {
+    nombre: "Recepcionista",
+    opciones: [
+      { nombre: "Inicio", ruta: "/recepcion" },
+      { nombre: "Socios", ruta: "/recepcion/socios" },
+      { nombre: "Inscripciones", ruta: "/recepcion/inscripciones" },
+      { nombre: "Actividades", ruta: "/recepcion/actividades" },
+    ],
+  },
+  socio: {
+    nombre: "Socio",
+    opciones: [
+      { nombre: "Inicio", ruta: "/socio" },
+      { nombre: "Mis actividades", ruta: "/socio/actividades" },
+      { nombre: "Mis inscripciones", ruta: "/socio/inscripciones" },
+      { nombre: "Horarios", ruta: "/socio/horarios" },
+      { nombre: "Mi horario", ruta: "/socio/mi-horario" },
+      { nombre: "Mi perfil", ruta: "/socio/perfil" },
+    ],
+  },
+  instructor: {
+    nombre: "Instructor",
+    opciones: [
+      { nombre: "Inicio", ruta: "/instructor" },
+      { nombre: "Mis clases", ruta: "/instructor/clases" },
+      { nombre: "Asistencia", ruta: "/instructor/asistencia" },
+      { nombre: "Mis horarios", ruta: "/instructor/horarios" },
+    ],
+  },
+};

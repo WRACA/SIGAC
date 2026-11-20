@@ -1,0 +1,690 @@
+use axum::{
+    extract::{Path, Query, State},
+    http::{header, HeaderMap, StatusCode},
+    Json,
+};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+use crate::{
+    AppState,
+    errors::{error_interno, ApiError},
+    handlers::auth::Claims,
+    models::{
+        AlumnoClase, AsistenciaQrRequest, AsistenciaRequest, AsistenciaResponse,
+        ClaseResumen, InscritoSesion, RangoFechas, SesionDetalleInstructor, SesionInstructor,
+    },
+    qr,
+    cierre::cerrar_sesiones_terminadas,
+};
+// Columnas comunes de una sesión del instructor (deben coincidir con `SesionInstructor`).
+// Requiere los alias `s` (sesion), `a` (actividad) e `i` (conteo de inscritos).
+const COLUMNAS_SESION: &str = r#"
+    s.id AS sesion_id,
+    a.nombre AS actividad,
+    a.descripcion,
+    TO_CHAR(s.inicio AT TIME ZONE 'America/Mexico_City', 'YYYY-MM-DD') AS fecha,
+    TO_CHAR(s.inicio AT TIME ZONE 'America/Mexico_City', 'HH24:MI') AS hora_inicio,
+    TO_CHAR(s.fin AT TIME ZONE 'America/Mexico_City', 'HH24:MI') AS hora_fin,
+    s.lugar,
+    s.estado::text AS estado,
+    CASE
+        WHEN s.estado = 'cancelada' THEN 'cancelada'
+        WHEN s.inicio <= statement_timestamp() AND statement_timestamp() < s.fin THEN 'en_curso'
+        WHEN s.inicio > statement_timestamp() THEN 'proxima'
+        ELSE 'finalizada'
+    END AS estado_tiempo,
+    s.cupo,
+    COALESCE(i.ocupados, 0)::bigint AS total_inscritos,
+    (s.cupo::bigint - COALESCE(i.ocupados, 0)::bigint) AS cupos_disponibles,
+    s.inicio::text AS inicio_iso,
+    s.fin::text AS fin_iso,
+    'America/Mexico_City'::text AS zona_horaria,
+    (
+        s.estado IN ('programada', 'en_curso')
+        AND s.inicio <= statement_timestamp()
+        AND statement_timestamp() < s.fin
+    ) AS en_curso
+"#;
+// FROM común: sesión + actividad + coach + conteo de inscritos activos
+const FROM_SESION: &str = r#"
+    FROM sesion s
+    JOIN actividad a ON s.actividad_id = a.id
+    JOIN coach c ON s.coach_id = c.id
+    LEFT JOIN (
+        SELECT sesion_id, COUNT(*) AS ocupados
+        FROM inscripcion
+        WHERE estado IN ('inscrito', 'asistio', 'falta')
+        GROUP BY sesion_id
+    ) i ON i.sesion_id = s.id
+"#;
+// GET /api/instructor/sesiones
+//      Acepta un rango opcional ?desde=YYYY-MM-DD&hasta=YYYY-MM-DD (fechas locales).
+pub async fn consultar_sesiones(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(rango): Query<RangoFechas>,
+) -> Result<Json<Vec<SesionInstructor>>, ApiError> {
+    rango.validar().map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+// 1. Obtener el token JWT
+    let token = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .ok_or((
+            StatusCode::UNAUTHORIZED,
+            "Token requerido".to_string(),
+        ))?;
+// 2. Validar el token
+    let secret = std::env::var("JWT_SECRET")
+        .map_err(|_| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Error de configuración del servidor".to_string(),
+        ))?;
+    let datos = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::new(Algorithm::HS256),
+    )
+    .map_err(|_| (
+        StatusCode::UNAUTHORIZED,
+        "Token inválido o expirado".to_string(),
+    ))?;
+// 3. Comprobar el rol del token
+    if datos.claims.rol != "coach" {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Esta función es exclusiva para instructores".to_string(),
+        ));
+    }
+// 4. Verificar que el instructor exista y esté activo
+    let autorizado = sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM coach c
+            JOIN usuario u ON c.usuario_id = u.id
+            WHERE u.id = $1
+              AND u.rol = 'coach'
+              AND u.activo = TRUE
+        )
+        "#
+    )
+    .bind(datos.claims.id)
+    .fetch_one(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+    if !autorizado {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "No tienes un perfil de instructor activo".to_string(),
+        ));
+    }
+    // Marcar faltas y sesiones realizadas antes de mostrar estados
+    cerrar_sesiones_terminadas(&state.api_pool).await;
+// 5. Consultar las sesiones del instructor (en curso, próximas y finalizadas),
+//    limitadas al rango de fechas si se envió. Las clases en curso van primero;
+//    el resto en orden cronológico.
+    let consulta = format!(
+        r#"
+        SELECT {COLUMNAS_SESION}
+        {FROM_SESION}
+        WHERE c.usuario_id = $1
+          AND a.eliminado_en IS NULL
+          AND ($2::text IS NULL
+               OR (s.inicio AT TIME ZONE 'America/Mexico_City')::date >= $2::date)
+          AND ($3::text IS NULL
+               OR (s.inicio AT TIME ZONE 'America/Mexico_City')::date <= $3::date)
+        ORDER BY
+            CASE
+                WHEN s.estado <> 'cancelada'
+                 AND s.inicio <= statement_timestamp()
+                 AND statement_timestamp() < s.fin THEN 0
+                ELSE 1
+            END ASC,
+            s.inicio ASC
+        "#
+    );
+    let sesiones = sqlx::query_as::<_, SesionInstructor>(&consulta)
+    .bind(datos.claims.id)
+    .bind(&rango.desde)
+    .bind(&rango.hasta)
+    .fetch_all(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+// 6. Devolver las sesiones en JSON
+    Ok(Json(sesiones))
+}
+
+// GET /api/instructor/clases
+// Clases (actividades) del instructor para el selector, sin contar sesiones canceladas.
+// `fecha_sugerida` es el día de la sesión en curso o próxima; si ya no tiene,
+// el de la última sesión finalizada.
+pub async fn consultar_clases(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<ClaseResumen>>, ApiError> {
+    let (usuario_id, _) = autenticar_coach(&state, &headers).await?;
+
+    let clases = sqlx::query_as::<_, ClaseResumen>(
+        r#"
+        SELECT
+            a.nombre AS actividad,
+            TO_CHAR(
+                COALESCE(
+                    MIN(s.inicio) FILTER (WHERE s.fin > statement_timestamp()),
+                    MAX(s.inicio)
+                ) AT TIME ZONE 'America/Mexico_City',
+                'YYYY-MM-DD'
+            ) AS fecha_sugerida
+        FROM sesion s
+        JOIN actividad a ON s.actividad_id = a.id
+        JOIN coach c ON s.coach_id = c.id
+        WHERE c.usuario_id = $1
+          AND a.eliminado_en IS NULL
+          AND s.estado <> 'cancelada'
+        GROUP BY a.nombre
+        ORDER BY a.nombre
+        "#
+    )
+    .bind(usuario_id)
+    .fetch_all(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    Ok(Json(clases))
+}
+// GET /api/instructor/sesiones/{id}
+pub async fn consultar_detalle_sesion(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(sesion_id): Path<i64>,
+) -> Result<Json<SesionDetalleInstructor>, ApiError> {
+// 1. Obtener y validar el token JWT
+    let token = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .ok_or((
+            StatusCode::UNAUTHORIZED,
+            "Token requerido".to_string(),
+        ))?;
+    let secret = std::env::var("JWT_SECRET")
+        .map_err(|_| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Error de configuración del servidor".to_string(),
+        ))?;
+    let datos = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::new(Algorithm::HS256),
+    )
+    .map_err(|_| (
+        StatusCode::UNAUTHORIZED,
+        "Token inválido o expirado".to_string(),
+    ))?;
+    if datos.claims.rol != "coach" {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Esta función es exclusiva para instructores".to_string(),
+        ));
+    }
+    // Marcar faltas y sesiones realizadas antes de mostrar estados
+    cerrar_sesiones_terminadas(&state.api_pool).await;
+// 2. Consultar la sesión asignada al coach (solo si está activo)
+    let consulta = format!(
+        r#"
+        SELECT {COLUMNAS_SESION}
+        {FROM_SESION}
+        JOIN usuario u ON c.usuario_id = u.id
+        WHERE s.id = $1
+          AND c.usuario_id = $2
+          AND u.activo = TRUE
+          AND a.eliminado_en IS NULL
+        "#
+    );
+    let sesion = sqlx::query_as::<_, SesionInstructor>(&consulta)
+    .bind(sesion_id)
+    .bind(datos.claims.id)
+    .fetch_optional(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+    let Some(sesion) = sesion else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            "La clase no existe o no está asignada a tu perfil".to_string(),
+        ));
+    };
+// 3. Consultar alumnos inscritos en esta sesión
+    let alumnos = sqlx::query_as::<_, AlumnoClase>(
+        r#"
+        SELECT
+            so.id AS socio_id,
+            so.numero_socio,
+            u.nombre,
+            u.apellido_p,
+            u.apellido_m,
+            i.estado::text AS estado_inscripcion
+        FROM inscripcion i
+        JOIN socio so ON i.socio_id = so.id
+        JOIN usuario u ON so.usuario_id = u.id
+        WHERE i.sesion_id = $1
+          AND i.estado IN ('inscrito', 'asistio', 'falta')
+        ORDER BY u.nombre, u.apellido_p
+        "#
+    )
+    .bind(sesion_id)
+    .fetch_all(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+    Ok(Json(SesionDetalleInstructor { sesion, alumnos }))
+}
+// Información necesaria para validar la sesión
+#[derive(sqlx::FromRow)]
+struct SesionAsistencia {
+    coach_id: i32,
+    en_horario: bool,
+    estado: String,
+}
+
+// Información de la credencial QR del socio.
+#[derive(sqlx::FromRow)]
+struct CredencialAsistencia {
+    socio_id: i32,
+    estado: String,
+    cuenta_activa: bool,
+}
+
+// Valida el JWT y devuelve (usuario_id, coach_id) del instructor activo autenticado.
+async fn autenticar_coach(
+    state: &AppState,
+    headers: &HeaderMap,
+) -> Result<(i32, i32), ApiError> {
+    // 1. Obtener el JWT
+    let token = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .ok_or((
+            StatusCode::UNAUTHORIZED,
+            "Token requerido".to_string(),
+        ))?;
+
+    // 2. Validar el token
+    let secret = std::env::var("JWT_SECRET")
+        .map_err(|_| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Error de configuración".to_string(),
+        ))?;
+
+    let datos = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::new(Algorithm::HS256),
+    )
+    .map_err(|_| (
+        StatusCode::UNAUTHORIZED,
+        "Token inválido o expirado".to_string(),
+    ))?;
+
+    // 3. Comprobar el rol
+    if datos.claims.rol != "coach" {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Solo los instructores pueden registrar asistencias".to_string(),
+        ));
+    }
+
+    // 4. Obtener el coach_id del usuario autenticado
+    let coach_id = sqlx::query_scalar::<_, i32>(
+        r#"
+        SELECT c.id
+        FROM coach c
+        JOIN usuario u ON c.usuario_id = u.id
+        WHERE u.id = $1
+          AND u.rol = 'coach'
+          AND u.activo = TRUE
+        "#
+    )
+    .bind(datos.claims.id)
+    .fetch_optional(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    let Some(coach_id) = coach_id else {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "No tienes un perfil de instructor activo".to_string(),
+        ));
+    };
+
+    Ok((datos.claims.id, coach_id))
+}
+
+// Valida la sesión y la inscripción del socio, y registra su asistencia.
+// Lo comparten el pase de lista manual y el registro mediante QR.
+async fn marcar_asistencia(
+    state: &AppState,
+    usuario_id: i32,
+    coach_id: i32,
+    socio_id: i32,
+    sesion_id: i64,
+) -> Result<Json<AsistenciaResponse>, ApiError> {
+    // 1. Consultar la sesión y verificar el horario
+    let sesion = sqlx::query_as::<_, SesionAsistencia>(
+        r#"
+        SELECT
+            coach_id,
+            (
+                inicio <= statement_timestamp()
+                AND statement_timestamp() < fin
+            ) AS en_horario,
+            estado::text AS estado
+        FROM sesion
+        WHERE id = $1
+        "#
+    )
+    .bind(sesion_id)
+    .fetch_optional(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    let Some(sesion) = sesion else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            "La sesión no existe".to_string(),
+        ));
+    };
+
+    // 2. Verificar que la sesión pertenezca al instructor
+    if sesion.coach_id != coach_id {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "No puedes registrar asistencia en una clase ajena".to_string(),
+        ));
+    }
+
+    // 3. Verificar el estado de la sesión
+    if sesion.estado != "programada" && sesion.estado != "en_curso" {
+        return Err((
+            StatusCode::CONFLICT,
+            "La sesión no permite registrar asistencias".to_string(),
+        ));
+    }
+
+    // 4. Verificar que estemos dentro del horario
+    if !sesion.en_horario {
+        return Err((
+            StatusCode::CONFLICT,
+            "Solo puedes registrar asistencias durante el horario de la sesión"
+                .to_string(),
+        ));
+    }
+
+    // 5. Comprobar que el socio esté inscrito
+    let inscripcion = sqlx::query_scalar::<_, String>(
+        r#"
+        SELECT estado::text
+        FROM inscripcion
+        WHERE socio_id = $1
+          AND sesion_id = $2
+        "#
+    )
+    .bind(socio_id)
+    .bind(sesion_id)
+    .fetch_optional(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    let Some(estado) = inscripcion else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            "El socio no está inscrito en esta sesión".to_string(),
+        ));
+    };
+
+    // 6. Evitar asistencias duplicadas o inscripciones canceladas
+    if estado != "inscrito" {
+        let mensaje = if estado == "asistio" {
+            "La asistencia de este socio ya fue registrada"
+        } else {
+            "La inscripción ya fue procesada o no está activa"
+        };
+
+        return Err((
+            StatusCode::CONFLICT,
+            mensaje.to_string(),
+        ));
+    }
+
+    // 7. Registrar la asistencia con una actualización condicionada.
+    // La condición evita duplicados y vuelve a validar sesión, horario e instructor.
+    let id = sqlx::query_scalar::<_, i64>(
+        r#"
+        UPDATE inscripcion AS i
+        SET
+            estado = 'asistio',
+            fecha_asistencia = statement_timestamp(),
+            registrado_por = $3
+        FROM sesion AS s
+        WHERE i.socio_id = $1
+          AND i.sesion_id = $2
+          AND s.id = i.sesion_id
+          AND i.estado = 'inscrito'
+          AND s.coach_id = $4
+          AND s.estado IN ('programada', 'en_curso')
+          AND s.inicio <= statement_timestamp()
+          AND statement_timestamp() < s.fin
+          AND EXISTS (
+              SELECT 1
+              FROM coach c
+              JOIN usuario u ON c.usuario_id = u.id
+              WHERE c.id = s.coach_id
+                AND u.id = $3
+                AND u.rol = 'coach'
+                AND u.activo = TRUE
+          )
+        RETURNING i.id
+        "#
+    )
+    .bind(socio_id)
+    .bind(sesion_id)
+    .bind(usuario_id)
+    .bind(coach_id)
+    .fetch_optional(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    let Some(inscripcion_id) = id else {
+        return Err((
+            StatusCode::CONFLICT,
+            "No se pudo registrar: la asistencia ya fue marcada o la sesión dejó de estar disponible"
+                .to_string(),
+        ));
+    };
+
+    // 8. Respuesta de éxito
+    Ok(Json(AsistenciaResponse {
+        inscripcion_id,
+        mensaje: "Asistencia registrada correctamente".to_string(),
+    }))
+}
+
+// PATCH /api/instructor/asistencia
+pub async fn registrar_asistencia(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<AsistenciaRequest>,
+) -> Result<Json<AsistenciaResponse>, ApiError> {
+    let (usuario_id, coach_id) = autenticar_coach(&state, &headers).await?;
+
+    marcar_asistencia(&state, usuario_id, coach_id, body.socio_id, body.sesion_id).await
+}
+
+// POST /api/instructor/asistencia/qr
+pub async fn registrar_asistencia_qr(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<AsistenciaQrRequest>,
+) -> Result<Json<AsistenciaResponse>, ApiError> {
+    // 1. Validar el JWT y obtener el perfil activo del instructor.
+    let (usuario_id, coach_id) = autenticar_coach(&state, &headers).await?;
+
+    // 2. Extraer el token de la credencial QR.
+    let token_qr = qr::extraer_token(&body.contenido).ok_or((
+        StatusCode::BAD_REQUEST,
+        "El código QR no es una credencial válida de SIGAC".to_string(),
+    ))?;
+
+    // 3. Buscar la credencial y comprobar el estado de la cuenta del socio.
+    let credencial = sqlx::query_as::<_, CredencialAsistencia>(
+        r#"
+        SELECT
+            c.socio_id,
+            c.estado::text AS estado,
+            (u.activo = TRUE AND u.rol = 'socio') AS cuenta_activa
+        FROM credencial_qr c
+        JOIN socio s ON s.id = c.socio_id
+        JOIN usuario u ON u.id = s.usuario_id
+        WHERE c.token = $1::uuid
+        "#
+    )
+    .bind(token_qr)
+    .fetch_optional(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+
+    let Some(credencial) = credencial else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            "Credencial inválida: no pertenece a ningún socio".to_string(),
+        ));
+    };
+
+    if credencial.estado != "activa" {
+        let mensaje = match credencial.estado.as_str() {
+            "revocada" => "La credencial QR fue revocada",
+            _ => "La credencial QR está inactiva",
+        };
+
+        return Err((
+            StatusCode::CONFLICT,
+            mensaje.to_string(),
+        ));
+    }
+
+    if !credencial.cuenta_activa {
+        return Err((
+            StatusCode::CONFLICT,
+            "La cuenta del socio no está activa".to_string(),
+        ));
+    }
+
+    // 4. Validar la sesión y registrar la asistencia.
+    marcar_asistencia(&state, usuario_id, coach_id, credencial.socio_id, body.sesion_id).await
+}
+
+// GET /api/instructor/sesiones/{id}/inscritos
+pub async fn consultar_inscritos(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(sesion_id): Path<i64>,
+) -> Result<Json<Vec<InscritoSesion>>, ApiError> {
+// 1. Obtener el JWT
+    let token = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .ok_or((
+            StatusCode::UNAUTHORIZED,
+            "Token requerido".to_string(),
+        ))?;
+// 2. Validar el token
+    let secret = std::env::var("JWT_SECRET")
+        .map_err(|_| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Error de configuración del servidor".to_string(),
+        ))?;
+    let datos = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::new(Algorithm::HS256),
+    )
+    .map_err(|_| (
+        StatusCode::UNAUTHORIZED,
+        "Token inválido o expirado".to_string(),
+    ))?;
+// 3. Comprobar el rol
+    if datos.claims.rol != "coach" {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Esta función es exclusiva para instructores".to_string(),
+        ));
+    }
+// 4. Obtener el coach_id del usuario autenticado
+    let coach_id = sqlx::query_scalar::<_, i32>(
+        r#"
+        SELECT c.id
+        FROM coach c
+        JOIN usuario u ON c.usuario_id = u.id
+        WHERE u.id = $1
+          AND u.rol = 'coach'
+          AND u.activo = TRUE
+        "#
+    )
+    .bind(datos.claims.id)
+    .fetch_optional(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+    let Some(coach_id) = coach_id else {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "No tienes un perfil de instructor activo".to_string(),
+        ));
+    };
+    // Marcar faltas y sesiones realizadas antes de mostrar estados
+    cerrar_sesiones_terminadas(&state.api_pool).await;
+// 5. Verificar que la sesión exista y pertenezca al instructor
+    let propietario = sqlx::query_scalar::<_, i32>(
+        "SELECT coach_id FROM sesion WHERE id = $1"
+    )
+    .bind(sesion_id)
+    .fetch_optional(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+    let Some(propietario) = propietario else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            "La sesión no existe".to_string(),
+        ));
+    };
+    if propietario != coach_id {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "No puedes consultar una clase ajena".to_string(),
+        ));
+    }
+// 6. Consultar los socios inscritos
+    let inscritos = sqlx::query_as::<_, InscritoSesion>(
+        r#"
+        SELECT
+            s.id AS socio_id,
+            s.numero_socio,
+            CONCAT_WS(' ', u.nombre, u.apellido_p, u.apellido_m) AS nombre,
+            i.estado::text AS estado,
+            TO_CHAR(
+                i.fecha_asistencia AT TIME ZONE 'America/Mexico_City',
+                'YYYY-MM-DD HH24:MI:SS'
+            ) AS fecha_asistencia
+        FROM inscripcion i
+        JOIN socio s ON i.socio_id = s.id
+        JOIN usuario u ON s.usuario_id = u.id
+        WHERE i.sesion_id = $1
+          AND i.estado <> 'cancelada'
+        ORDER BY u.nombre, u.apellido_p
+        "#
+    )
+    .bind(sesion_id)
+    .fetch_all(&state.api_pool)
+    .await
+    .map_err(error_interno)?;
+    Ok(Json(inscritos))
+}

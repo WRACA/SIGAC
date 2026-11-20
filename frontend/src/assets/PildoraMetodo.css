@@ -1,0 +1,73 @@
+/* Píldora segmentada con fondo deslizante */
+.pildora-metodo {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--pildora-opciones), 1fr);
+  width: 100%;
+  max-width: 420px;
+  padding: 4px;
+  background: #202020;
+  border: 1px solid #383838;
+  border-radius: 999px;
+}
+
+.pildora-metodo-deshabilitada {
+  opacity: 0.6;
+}
+
+.pildora-metodo .pildora-metodo-fondo {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 8px) / var(--pildora-opciones));
+  background: #ff5a00;
+  border-radius: 999px;
+  transform: translateX(calc(100% * var(--pildora-indice)));
+  transition: transform 0.25s ease;
+}
+
+/* Especificidad suficiente para no heredar estilos de botón de la página */
+.pildora-metodo .pildora-metodo-opcion,
+.pildora-metodo .pildora-metodo-opcion:hover {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 16px;
+  color: #b5b5b5;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.pildora-metodo .pildora-metodo-opcion.activa,
+.pildora-metodo .pildora-metodo-opcion.activa:hover {
+  color: #060606;
+}
+
+.pildora-metodo .pildora-metodo-opcion:not(.activa):hover:not(:disabled) {
+  color: #ffffff;
+}
+
+.pildora-metodo .pildora-metodo-opcion:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: -4px;
+}
+
+.pildora-metodo .pildora-metodo-opcion:disabled {
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pildora-metodo .pildora-metodo-fondo {
+    transition: none;
+  }
+}

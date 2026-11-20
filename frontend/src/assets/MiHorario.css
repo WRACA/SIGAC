@@ -1,0 +1,252 @@
+
+.mi-horario {
+  width: 100%;
+  color: #f2f2f2;
+}
+
+.mi-horario-encabezado {
+  margin-bottom: 30px;
+}
+
+.mi-horario-etiqueta {
+  color: #ff5a00;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.mi-horario-encabezado h2 {
+  margin: 8px 0;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 32px;
+}
+
+.mi-horario-encabezado p {
+  color: #b5b5b5;
+  margin: 0;
+}
+
+.calendario-controles {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.calendario-controles h3 {
+  margin: 0;
+  color: #f2f2f2;
+  font-size: 16px;
+  text-transform: capitalize;
+}
+
+.calendario-navegacion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendario-navegacion button {
+  min-width: 38px;
+  height: 36px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #141414;
+  color: #f2f2f2;
+  font-size: 22px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.calendario-navegacion button:hover {
+  border-color: #ff5a00;
+  color: #ff5a00;
+}
+
+.calendario-navegacion .calendario-hoy {
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.calendario-contenedor {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  background: #101010;
+}
+
+.calendario {
+  min-width: 850px;
+}
+
+.calendario-cabecera {
+  display: grid;
+  grid-template-columns: 62px repeat(7, minmax(105px, 1fr));
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #141414;
+  border-bottom: 1px solid #333;
+}
+
+.calendario-esquina,
+.calendario-dia {
+  min-height: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px solid #2a2a2a;
+}
+
+.calendario-esquina {
+  color: #999;
+  font-size: 12px;
+  border-left: none;
+}
+
+.calendario-dia span {
+  color: #aaa;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.calendario-dia strong {
+  margin: 3px 0;
+  font-size: 20px;
+}
+
+.calendario-dia small {
+  color: #888;
+  font-size: 10px;
+  text-transform: capitalize;
+}
+
+.calendario-dia.dia-actual strong {
+  color: #ff5a00;
+}
+
+.calendario-cuerpo {
+  display: grid;
+  grid-template-columns: 62px repeat(7, minmax(105px, 1fr));
+}
+
+.calendario-horas {
+  background: #141414;
+}
+
+.calendario-hora {
+  height: 64px;
+  padding: 5px 7px 0 0;
+  color: #888;
+  font-size: 11px;
+  text-align: right;
+  transform: translateY(-8px);
+}
+
+.calendario-columna {
+  height: 1024px;
+  position: relative;
+  border-left: 1px solid #2a2a2a;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 63px,
+    #292929 63px,
+    #292929 64px
+  );
+}
+
+.calendario-celda {
+  height: 64px;
+  border-bottom: 1px solid rgba(42, 42, 42, 0.25);
+}
+
+.sesion-calendario {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: hidden;
+  padding: 7px;
+  border-left: 3px solid #ff5a00;
+  border-radius: 5px;
+  background: rgba(242, 109, 33, 0.16);
+  color: #f2f2f2;
+  font-size: 11px;
+}
+
+.sesion-calendario strong {
+  color: #ff8a4c;
+  font-size: 12px;
+}
+
+.sesion-calendario span {
+  font-size: 10px;
+}
+
+.sesion-calendario small {
+  color: #c4c4c4;
+  font-size: 10px;
+}
+
+/* Sesión cancelada: atenuada y tachada */
+.sesion-calendario.sesion-cancelada {
+  border-left-color: #6a6a6a;
+  background: rgba(120, 120, 120, 0.14);
+  opacity: 0.7;
+}
+
+.sesion-calendario.sesion-cancelada strong,
+.sesion-calendario.sesion-cancelada span {
+  color: #9a9a9a;
+  text-decoration: line-through;
+}
+
+.sesion-calendario .sesion-cancelada-etiqueta {
+  color: #ff7777;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.horario-mensaje,
+.horario-sin-sesiones {
+  margin: 20px 0;
+  padding: 28px;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  background: #141414;
+  text-align: center;
+}
+
+.horario-mensaje p,
+.horario-sin-sesiones p {
+  color: #b5b5b5;
+}
+
+.horario-mensaje.error {
+  border-color: #8f3030;
+}
+
+.horario-sin-sesiones h3 {
+  margin-top: 0;
+  font-family: "Barlow Condensed", sans-serif;
+}
+
+@media (max-width: 650px) {
+  .calendario-controles {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mi-horario-encabezado h2 {
+    font-size: 28px;
+  }
+}
