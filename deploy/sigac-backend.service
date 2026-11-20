@@ -1,0 +1,22 @@
+[Unit]
+Description=SIGAC backend (Axum, puerto 3000)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=sigac
+Group=sigac
+EnvironmentFile=/etc/sigac/sigac.env
+WorkingDirectory=/opt/sigac
+ExecStart=/opt/sigac/backend-sigac
+Restart=always
+RestartSec=5
+# Sin consola: la semilla por teclado (seed.rs) recibe EOF y no se dispara.
+StandardInput=null
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
